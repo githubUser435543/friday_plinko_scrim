@@ -41,12 +41,14 @@ systemctl --no-pager status ssh apache2
 # Include mariadb when using --local-mariadb:
 systemctl --no-pager status mariadb
 curl -fsS http://127.0.0.1/api/status.php
+id jmoney
+id plinktern
 MANIFEST_IP=172.16.1.40
 mysql -h "$MANIFEST_IP" -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
 # For --local-mariadb, use: mysql -h 127.0.0.1 -u jmoney -p
 ```
 
-Browse to Guidance and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`.
+Browse to Guidance and sign in as `plinktern` for administration or `jmoney` for scoring. Both OS accounts initially use `H00ves0nTheM00n`; `plinktern` belongs to `sudo` and `jmoney` does not.
 
 ## Dependency change
 

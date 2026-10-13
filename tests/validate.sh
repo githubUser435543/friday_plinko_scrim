@@ -88,10 +88,16 @@ rg -q 'functional host findings' README.md
 rg -q 'Sliver-like process indicator disconnected from C2' ANSWER_KEY.md
 rg -q 'IMIX-like process indicator disconnected from C2' ANSWER_KEY.md
 rg -q 'Live unauthorized MariaDB administrator' ANSWER_KEY.md
+rg -q "useradd --create-home --shell /bin/bash jmoney" guidance/setup.sh
 rg -q "useradd --create-home --shell /bin/bash plinktern" guidance/setup.sh
+rg -q "id -nG plinktern.*sudo" guidance/setup.sh
+rg -q "useradd --create-home --shell /bin/bash jmoney" ignition/setup.sh
 rg -q "useradd --create-home --shell /bin/bash plinktern" ignition/setup.sh
+rg -q "id -nG plinktern.*wheel" ignition/setup.sh
 rg -q "Ensure-IhplLocalUser -Name 'plinktern'.*Administrators" assembly/Setup-Assembly.ps1
+rg -q "Ensure-IhplLocalUser -Name 'jmoney'.*Remote Desktop Users" assembly/Setup-Assembly.ps1
 rg -q "Ensure-IhplLocalUser -Name 'plinktern'.*Administrators" manifest/Setup-Manifest.ps1
+rg -q "Ensure-IhplLocalUser -Name 'jmoney'.*Remote Desktop Users" manifest/Setup-Manifest.ps1
 rg -q "'jmoney'.*'operator'" manifest/schema.sql
 rg -q "'plinktern'.*'admin'" manifest/schema.sql
 rg -q -- '--local-mariadb' guidance/setup.sh
@@ -103,12 +109,12 @@ if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly
   exit 1
 fi
 
-if rg -n 'WinNT://\{0\}/\{1\},user' assembly manifest; then
-  printf 'Windows setup uses a lazy WinNT user binding that cannot reliably detect missing accounts\n' >&2
-  exit 1
-fi
-rg -q '\$computer\.Children' assembly/Setup-Assembly.ps1
-rg -q '\$computer\.Children' manifest/Setup-Manifest.ps1
+rg -q '& \$netExe user \$Name' assembly/Setup-Assembly.ps1
+rg -q '& \$netExe user \$Name' manifest/Setup-Manifest.ps1
+rg -q 'Assert-IhplScoredAccounts' assembly/Setup-Assembly.ps1
+rg -q 'Assert-IhplScoredAccounts' manifest/Setup-Manifest.ps1
+rg -q 'jmoney is not a member of Remote Desktop Users' assembly/Setup-Assembly.ps1
+rg -q 'jmoney is not a member of Remote Desktop Users' manifest/Setup-Manifest.ps1
 
 if rg -n -i 'all planted artifacts.*inert|keeping .*artifacts inert' README.md ANSWER_KEY.md; then
   printf 'documentation incorrectly labels every range finding as inert\n' >&2

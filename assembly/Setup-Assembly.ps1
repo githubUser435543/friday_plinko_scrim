@@ -40,13 +40,13 @@ function Get-IhplLocalUser {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
 
-    $computer = [ADSI]("WinNT://{0},computer" -f $env:COMPUTERNAME)
-    foreach ($entry in $computer.Children) {
-        if ($entry.SchemaClassName -eq 'User' -and $entry.Name -eq $Name) {
-            return $entry
-        }
-    }
-    return $null
+    $netExe = Join-Path $env:SystemRoot 'System32\net.exe'
+    $null = & $netExe user $Name 2>&1
+    if ($LASTEXITCODE -ne 0) { return $null }
+
+    $entry = [ADSI]("WinNT://{0}/{1},user" -f $env:COMPUTERNAME, $Name)
+    $entry.RefreshCache()
+    return $entry
 }
 
 function Add-IhplLocalGroupMember {
@@ -56,13 +56,24 @@ function Add-IhplLocalGroupMember {
         [Parameter(Mandatory)][string]$Group
     )
 
-    $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
-    $null = $groupEntry.psbase.NativeObject
-    $memberPath = [string]$User.Path
-    $isMember = [bool]$groupEntry.psbase.Invoke('IsMember', @($memberPath))
-    if (-not $isMember) {
+    if (-not (Test-IhplLocalGroupMember -User $User -Group $Group)) {
+        $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
+        $null = $groupEntry.psbase.NativeObject
+        $memberPath = [string]$User.Path
         $groupEntry.psbase.Invoke('Add', @($memberPath))
     }
+}
+
+function Test-IhplLocalGroupMember {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][System.DirectoryServices.DirectoryEntry]$User,
+        [Parameter(Mandatory)][string]$Group
+    )
+
+    $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
+    $null = $groupEntry.psbase.NativeObject
+    return [bool]$groupEntry.psbase.Invoke('IsMember', @([string]$User.Path))
 }
 
 function Ensure-IhplLocalUser {
@@ -75,19 +86,21 @@ function Ensure-IhplLocalUser {
         [Parameter()][switch]$Disabled
     )
 
+    $netExe = Join-Path $env:SystemRoot 'System32\net.exe'
     $user = Get-IhplLocalUser -Name $Name
     if ($null -eq $user) {
-        $computer = [ADSI]("WinNT://{0},computer" -f $env:COMPUTERNAME)
-        $user = $computer.Create('user', $Name)
-        $user.SetPassword($Password)
-        $user.SetInfo()
-        $user = Get-IhplLocalUser -Name $Name
-        if ($null -eq $user) {
-            throw "Local account $Name was created but could not be reopened."
-        }
+        $netOutput = & $netExe user $Name $Password /add 2>&1
     }
     else {
-        $user.SetPassword($Password)
+        $netOutput = & $netExe user $Name $Password 2>&1
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to create or update local account $Name with net.exe: $($netOutput -join ' ')"
+    }
+
+    $user = Get-IhplLocalUser -Name $Name
+    if ($null -eq $user) {
+        throw "Local account $Name was created but could not be reopened."
     }
 
     if ($Description) {
@@ -108,6 +121,33 @@ function Ensure-IhplLocalUser {
 
     foreach ($group in $Groups) {
         Add-IhplLocalGroupMember -User $user -Group $group
+    }
+}
+
+function Assert-IhplScoredAccounts {
+    [CmdletBinding()]
+    param()
+
+    $plinktern = Get-IhplLocalUser -Name 'plinktern'
+    $jmoney = Get-IhplLocalUser -Name 'jmoney'
+    foreach ($account in @($plinktern, $jmoney)) {
+        if ($null -eq $account) {
+            throw 'Required local accounts plinktern and jmoney were not both created.'
+        }
+        $account.RefreshCache()
+        if (([int]$account.Properties['UserFlags'].Value -band 0x2) -ne 0) {
+            throw "Required local account $($account.Name) is disabled."
+        }
+    }
+
+    if (-not (Test-IhplLocalGroupMember -User $plinktern -Group 'Administrators')) {
+        throw 'plinktern is not a member of the local Administrators group.'
+    }
+    if (-not (Test-IhplLocalGroupMember -User $plinktern -Group 'Remote Desktop Users')) {
+        throw 'plinktern is not a member of Remote Desktop Users.'
+    }
+    if (-not (Test-IhplLocalGroupMember -User $jmoney -Group 'Remote Desktop Users')) {
+        throw 'jmoney is not a member of Remote Desktop Users.'
     }
 }
 
@@ -234,6 +274,7 @@ try {
     }
     Ensure-IhplLocalUser -Name 'plinktern' -Password $StarterPassword -Groups @('Administrators', 'Remote Desktop Users')
     Ensure-IhplLocalUser -Name 'jmoney' -Password $StarterPassword -Groups @('Remote Desktop Users')
+    Assert-IhplScoredAccounts
 
     Write-Host '[Assembly] Installing Microsoft OpenJDK 17 when needed...'
     $javaHome = Find-CompatibleJavaHome

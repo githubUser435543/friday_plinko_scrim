@@ -138,6 +138,12 @@ printf 'jmoney:%s\n' "$STARTER_PASSWORD" | chpasswd
 printf 'plinktern:%s\n' "$STARTER_PASSWORD" | chpasswd
 usermod -aG wheel plinktern
 gpasswd --delete jmoney wheel >/dev/null 2>&1 || true
+id jmoney >/dev/null
+id plinktern >/dev/null
+if [[ " $(id -nG plinktern) " != *' wheel '* ]]; then
+  printf 'plinktern was not added to the wheel group.\n' >&2
+  exit 1
+fi
 systemctl enable --now sshd firewalld
 firewall-cmd --permanent --add-service=ssh
 firewall-cmd --permanent --add-service=http

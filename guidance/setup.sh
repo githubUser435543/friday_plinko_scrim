@@ -220,6 +220,12 @@ printf 'jmoney:%s\n' "$STARTER_PASSWORD" | chpasswd
 printf 'plinktern:%s\n' "$STARTER_PASSWORD" | chpasswd
 usermod -aG sudo plinktern
 gpasswd --delete jmoney sudo >/dev/null 2>&1 || true
+id jmoney >/dev/null
+id plinktern >/dev/null
+if [[ " $(id -nG plinktern) " != *' sudo '* ]]; then
+  printf 'plinktern was not added to the sudo group.\n' >&2
+  exit 1
+fi
 
 printf '[Guidance] Deploying PlinkCom...\n'
 install -d -m 0755 /var/www/plinkcom

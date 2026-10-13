@@ -51,6 +51,8 @@ The packet's starter password is used by default so the range is usable immediat
 
 Each service also has a `jmoney` scoring account with the same starter password.
 
+Every host installer creates and verifies the `jmoney` and `plinktern` operating-system accounts. `plinktern` is an administrator through `sudo`, `wheel`, or the Windows `Administrators` group; `jmoney` remains an unprivileged scoring user with remote-login access.
+
 Override these values at install time and rotate them before exposing the range to participants. See [BLUE_TEAM.md](BLUE_TEAM.md) for the participant handout and [ANSWER_KEY.md](ANSWER_KEY.md) for organizer-only findings.
 
 ## Range behavior

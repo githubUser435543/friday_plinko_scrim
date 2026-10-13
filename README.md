@@ -1,6 +1,6 @@
 # Friday Horse Plinko Scrimmage
 
-This repository builds a four-host, self-contained blue-team practice range inspired by the HPCC4 onboarding packet. It recreates the required services and visual identity while keeping the planted incident artifacts inert: none of the simulations opens an interactive shell, executes operator-supplied commands, contacts a command-and-control server, or installs a kernel rootkit.
+This repository builds a four-host, self-contained blue-team practice range inspired by the HPCC4 onboarding packet. It recreates the required services, visual identity, and functional host findings such as unauthorized accounts, weak permissions, scheduled persistence, listeners, and excessive application access. Payload-class findings are explicitly identified as non-executing stand-ins and do not contact command-and-control infrastructure.
 
 ## Topology
 
@@ -53,9 +53,9 @@ Each service also has a `jmoney` scoring account with the same starter password.
 
 Override these values at install time and rotate them before exposing the range to participants. See [BLUE_TEAM.md](BLUE_TEAM.md) for the participant handout and [ANSWER_KEY.md](ANSWER_KEY.md) for organizer-only findings.
 
-## Safety boundary
+## Range behavior
 
-The packet requested real implants, reverse/bind shells, a rootkit, a PHP command shell, and a working Jenkins RCE. This project substitutes forensic simulations that create the same kinds of observable clues without command execution or C2 traffic. The web-shell page returns a fixed training response; beacon processes only sleep or append to local logs; shell simulations accept a connection only on loopback and return a banner; suspicious accounts are locked or narrowly constrained. Do not replace these with operational malware on a shared network.
+Account, authorization, ACL, service, timer, cron, and scheduled-task findings are installed as functional configurations. The Sliver and IMIX process indicators remain disconnected from C2. The PHP web-shell, command-shell listener, rootkit, malicious SUID behavior, and Jenkins RCE findings are non-executing stand-ins: they preserve discovery and remediation exercises without accepting operator commands or installing exploit code. The organizer answer key identifies the behavior of every finding.
 
 ## Validation
 

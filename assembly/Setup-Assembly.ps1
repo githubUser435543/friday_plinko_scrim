@@ -146,7 +146,7 @@ current Jenkins security advisories. No exploit code or command-execution primit
 is installed by this project.
 '@ | Set-Content -LiteralPath (Join-Path $trainingRoot 'jenkins-version-review.txt') -Encoding UTF8
 
-    Write-Host '[Assembly] Inert artifacts installed; no RCE exploit or command shell is present.'
+    Write-Host '[Assembly] Findings installed; the version-risk marker does not include exploit code.'
 }
 
 function Save-VerifiedMsi {
@@ -361,7 +361,7 @@ instance.save()
     Wait-HttpReady -Uri 'http://127.0.0.1:8080/login' -Attempts 60
 
     if (-not $SkipTrainingArtifacts) {
-        Write-Host '[Assembly] Planting inert incident-response artifacts...'
+        Write-Host '[Assembly] Planting incident-response findings...'
         Install-IhplTrainingArtifacts
     }
 

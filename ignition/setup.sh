@@ -12,7 +12,7 @@ usage() {
 }
 
 install_training_artifacts() {
-  printf '[Ignition] Planting inert incident-response artifacts...\n'
+  printf '[Ignition] Planting incident-response findings...\n'
   install -d -m 0755 /opt/ihpl-training /usr/local/libexec /home/jmoney/Downloads
 
   if ! id flight-cache >/dev/null 2>&1; then
@@ -70,14 +70,14 @@ EOF
   chmod 0755 /home/jmoney/Downloads/telemetry_viewer
 
   cat > /etc/profile.d/telemetry-debug.sh <<'EOF'
-# Suspicious but inert training clue.
+# Unauthorized environment persistence finding.
 export IHPL_TELEMETRY_DEBUG=1
 EOF
   chmod 0644 /etc/profile.d/telemetry-debug.sh
 
   systemctl daemon-reload
   systemctl enable --now telemetry-indexer.service
-  printf '[Ignition] Inert artifacts installed; no command shell or C2 behavior is present.\n'
+  printf '[Ignition] Findings installed; the IMIX indicator is disconnected and the Downloads payload is non-executing.\n'
 }
 
 while (($#)); do

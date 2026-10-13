@@ -84,6 +84,10 @@ rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
 rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
 rg -q 'grep --no-messages bishop' ANSWER_KEY.md
+rg -q 'functional host findings' README.md
+rg -q 'Sliver-like process indicator disconnected from C2' ANSWER_KEY.md
+rg -q 'IMIX-like process indicator disconnected from C2' ANSWER_KEY.md
+rg -q 'Live unauthorized MariaDB administrator' ANSWER_KEY.md
 rg -q "useradd --create-home --shell /bin/bash plinktern" guidance/setup.sh
 rg -q "useradd --create-home --shell /bin/bash plinktern" ignition/setup.sh
 rg -q "Ensure-IhplLocalUser -Name 'plinktern'.*Administrators" assembly/Setup-Assembly.ps1
@@ -105,6 +109,11 @@ if rg -n 'WinNT://\{0\}/\{1\},user' assembly manifest; then
 fi
 rg -q '\$computer\.Children' assembly/Setup-Assembly.ps1
 rg -q '\$computer\.Children' manifest/Setup-Manifest.ps1
+
+if rg -n -i 'all planted artifacts.*inert|keeping .*artifacts inert' README.md ANSWER_KEY.md; then
+  printf 'documentation incorrectly labels every range finding as inert\n' >&2
+  exit 1
+fi
 
 git diff --check
 printf 'Static validation passed.\n'

@@ -142,7 +142,7 @@ try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
         try {
-            $bytes = [Text.Encoding]::UTF8.GetBytes("IHPL inert training listener; command execution disabled.`r`n")
+            $bytes = [Text.Encoding]::UTF8.GetBytes("IHPL maintenance listener; command execution disabled.`r`n")
             $client.GetStream().Write($bytes, 0, $bytes.Length)
         }
         finally { $client.Dispose() }
@@ -176,7 +176,7 @@ This is plain text. It is not a Windows executable and has no network behavior.
         & icacls.exe $MariaData /grant '*S-1-5-32-545:(OI)(CI)RX' /T /C | Out-Null
     }
 
-    Write-Host '[Manifest] Inert artifacts installed; no executable implant or command shell is present.'
+    Write-Host '[Manifest] Findings installed; Sliver and IMIX indicators are disconnected and the listener does not execute commands.'
 }
 
 function Save-VerifiedArchive {
@@ -305,7 +305,7 @@ port=3306
     New-NetFirewallRule -DisplayName 'IHPL MariaDB 3306' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3306 -RemoteAddress @($GuidanceIp, $AssemblyIp) -Profile Any | Out-Null
 
     if (-not $SkipTrainingArtifacts) {
-        Write-Host '[Manifest] Planting inert incident-response artifacts...'
+        Write-Host '[Manifest] Planting incident-response findings...'
         Install-IhplTrainingArtifacts -MariaData $MariaData
     }
 

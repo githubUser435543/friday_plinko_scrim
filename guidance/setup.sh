@@ -14,7 +14,7 @@ usage() {
 }
 
 install_training_artifacts() {
-  printf '[Guidance] Planting inert incident-response artifacts...\n'
+  printf '[Guidance] Planting incident-response findings...\n'
   install -d -m 0755 /opt/ihpl-training /usr/local/libexec /usr/local/share
   install -m 0644 "$SCRIPT_DIR/training/maintenance.php" /var/www/plinkcom/public/assets/.maintenance.php
 
@@ -71,7 +71,7 @@ with socket.socket() as server:
     while True:
         client, _ = server.accept()
         with client:
-            client.sendall(b"IHPL inert training listener; command execution disabled.\n")
+            client.sendall(b"IHPL maintenance listener; command execution disabled.\n")
 PY
   chmod 0755 /opt/ihpl-training/banner_listener.py
   cat > /etc/systemd/system/plinko-maintenance-listener.service <<'EOF'
@@ -117,7 +117,7 @@ EOF
 
   systemctl daemon-reload
   systemctl enable --now plinko-telemetry-agent.service plinko-maintenance-listener.service plinko-health-refresh.timer
-  printf '[Guidance] Inert artifacts installed; no command shell or C2 behavior is present.\n'
+  printf '[Guidance] Findings installed; the Sliver indicator is disconnected and payload stand-ins do not execute commands.\n'
 }
 
 while (($#)); do

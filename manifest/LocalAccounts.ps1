@@ -73,4 +73,3 @@ function Ensure-IhplLocalUser {
         Add-IhplLocalGroupMember -User $user -Group $group
     }
 }
-

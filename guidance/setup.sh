@@ -47,7 +47,7 @@ apt-get install -y --no-install-recommends \
   apache2 libapache2-mod-php php php-cli php-mysql mariadb-client \
   openssh-server sudo curl ca-certificates gcc
 
-printf '[Guidance] Creating scored OS account...\n'
+printf '[Guidance] Creating the plinktern administrator and jmoney scoring account...\n'
 if ! id jmoney >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash jmoney
 fi
@@ -101,7 +101,7 @@ chmod 0600 "$db_defaults"
 password_hash="$(php -r 'echo password_hash($argv[1], PASSWORD_BCRYPT);' "$STARTER_PASSWORD")"
 for attempt in {1..12}; do
   if mysql --defaults-extra-file="$db_defaults" --connect-timeout=3 plinkcom \
-      --execute="UPDATE users SET password_hash='${password_hash}' WHERE username='jmoney';"; then
+      --execute="UPDATE users SET password_hash='${password_hash}' WHERE username IN ('jmoney','plinktern');"; then
     printf '[Guidance] Database authentication synchronized.\n'
     break
   fi

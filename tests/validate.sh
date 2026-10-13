@@ -51,6 +51,12 @@ rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
 rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
 rg -q 'grep --no-messages bishop' ANSWER_KEY.md
+rg -q "useradd --create-home --shell /bin/bash plinktern" guidance/setup.sh
+rg -q "useradd --create-home --shell /bin/bash plinktern" ignition/setup.sh
+rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" assembly/Setup-Assembly.ps1
+rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" manifest/Setup-Manifest.ps1
+rg -q "'jmoney'.*'operator'" manifest/schema.sql
+rg -q "'plinktern'.*'admin'" manifest/schema.sql
 
 git diff --check
 printf 'Static validation passed.\n'

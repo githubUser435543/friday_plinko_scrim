@@ -28,6 +28,8 @@ Get-NetTCPConnection -LocalPort 3306 -State Listen
 Get-NetFirewallRule -DisplayName 'IHPL MariaDB 3306'
 ```
 
+Use `plinktern` for database administration and `jmoney` for scoring checks. Both accounts initially use `H00ves0nTheM00n`.
+
 ## Firewall scope
 
 `IHPL MariaDB 3306` permits only the configured Guidance and Assembly addresses. Guidance needs database access for PlinkCom, and Assembly needs it for the backup job. Add a separate, narrowly scoped rule if the scoring engine connects directly.

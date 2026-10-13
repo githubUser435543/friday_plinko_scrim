@@ -58,6 +58,7 @@ fi
 printf '[Ignition] Installing supported packages...\n'
 dnf "${DNF_ARGS[@]}" install openssh-server podman curl python3 sudo gcc firewalld
 
+printf '[Ignition] Creating the plinktern administrator and jmoney scoring account...\n'
 if ! id jmoney >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash jmoney
 fi

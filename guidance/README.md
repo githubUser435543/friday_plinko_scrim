@@ -1,6 +1,6 @@
 # Guidance — PlinkCom
 
-Guidance is an Ubuntu Server 22.04 host running OpenSSH, Apache, PHP, and the custom PlinkCom dashboard. PlinkCom reads launch data from Manifest over MariaDB TCP 3306.
+Guidance is an Ubuntu 22.04 host running OpenSSH, Apache, PHP, and the custom PlinkCom dashboard. PlinkCom reads launch data from Manifest over MariaDB TCP 3306.
 
 ## Install
 
@@ -30,7 +30,7 @@ curl -fsS http://127.0.0.1/api/status.php
 mysql -h 172.16.1.40 -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
 ```
 
-Browse to `http://172.16.1.10/` and sign in as `jmoney`.
+Browse to Guidance and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`.
 
 ## Dependency change
 

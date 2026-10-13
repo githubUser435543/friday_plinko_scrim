@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS mission_events (
 );
 
 INSERT INTO users (username, display_name, password_hash, role, active)
-VALUES ('jmoney', 'J-Money', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'admin', 1)
+VALUES
+    ('jmoney', 'J-Money', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'operator', 1),
+    ('plinktern', 'Plinktern Administrator', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'admin', 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), active = 1;
 
 INSERT INTO rockets (callsign, mission, status, phase, altitude_km, velocity_kms, fuel_percent, engine_temp_c)

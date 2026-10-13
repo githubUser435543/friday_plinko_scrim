@@ -30,7 +30,7 @@ Invoke-WebRequest -UseBasicParsing http://localhost:8080/login
 Get-NetFirewallRule -DisplayName 'IHPL Jenkins 8080'
 ```
 
-Browse to `http://172.16.1.30:8080/` and sign in as `jmoney`. On first startup, allow up to two minutes for Jenkins to initialize the security realm and jobs.
+Browse to Assembly on TCP 8080 and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`. On first startup, allow up to two minutes for Jenkins to initialize the security realm and jobs.
 
 ## Notes
 

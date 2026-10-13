@@ -23,6 +23,6 @@ curl -fsS http://127.0.0.1/health
 podman logs --tail 50 open-webui
 ```
 
-Browse to `http://172.16.1.20/` and sign in as `jmoney@plinko.horse`.
+Browse to Ignition and sign in as `plinktern@plinko.horse` for administration or `jmoney@plinko.horse` for scoring. Both accounts initially use `H00ves0nTheM00n`.
 
 Open WebUI data persists at `/var/lib/open-webui`. Back up that directory before upgrades. The image tag defaults to exactly `v0.11.3`; override `--open-webui-version` only for a deliberate upgrade exercise.

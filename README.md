@@ -4,12 +4,12 @@ This repository builds a four-host, self-contained blue-team practice range insp
 
 ## Topology
 
-| Host | Reference OS | Default address | Critical services |
-| --- | --- | --- | --- |
-| `guidance` | Ubuntu Server 22.04 | `172.16.1.10` | SSH, PlinkCom (Apache/PHP) |
-| `ignition` | Fedora Server 38 | `172.16.1.20` | SSH, Open WebUI v0.11.3 |
-| `assembly` | Windows Server 2022 | `172.16.1.30` | RDP, Jenkins |
-| `manifest` | Windows Server 2019 | `172.16.1.40` | RDP, MariaDB |
+| Host | Reference OS | Critical services |
+| --- | --- | --- |
+| `guidance` | Ubuntu 22.04 | SSH, PlinkCom (Apache/PHP) |
+| `ignition` | Fedora Server 38 | SSH, Open WebUI v0.11.3 |
+| `assembly` | Windows Server 2022 | RDP, Jenkins |
+| `manifest` | Windows Server 2019 | RDP, MariaDB |
 
 Change the addresses through each setup script's parameters. The scripts do not configure a static interface because interface names and gateways vary by hypervisor.
 
@@ -40,14 +40,16 @@ Example commands are in each host's README. Setup logs are written beneath `/var
 
 ## Credentials
 
-The packet's starter credential is used by default so the range is usable immediately:
+The packet's starter password is used by default so the range is usable immediately:
 
 - OS administrator: `plinktern` / `H00ves0nTheM00n`
 - Scoring OS account: `jmoney` / `H00ves0nTheM00n`
-- PlinkCom: `jmoney` / `H00ves0nTheM00n`
-- Open WebUI: `jmoney@plinko.horse` / `H00ves0nTheM00n`
-- Jenkins: `jmoney` / `H00ves0nTheM00n`
-- MariaDB: `jmoney` / `H00ves0nTheM00n`
+- PlinkCom administrator: `plinktern` / `H00ves0nTheM00n`
+- Open WebUI administrator: `plinktern@plinko.horse` / `H00ves0nTheM00n`
+- Jenkins administrator: `plinktern` / `H00ves0nTheM00n`
+- MariaDB administrator: `plinktern` / `H00ves0nTheM00n`
+
+Each service also has a `jmoney` scoring account with the same starter password.
 
 Override these values at install time and rotate them before exposing the range to participants. See [BLUE_TEAM.md](BLUE_TEAM.md) for the participant handout and [ANSWER_KEY.md](ANSWER_KEY.md) for organizer-only findings.
 

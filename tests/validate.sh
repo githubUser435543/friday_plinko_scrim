@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+required_files=(
+  README.md
+  ANSWER_KEY.md
+  BLUE_TEAM.md
+  guidance/README.md
+  guidance/setup.sh
+  guidance/database/schema.sql
+  guidance/plinkcom/public/dashboard.php
+  ignition/README.md
+  ignition/setup.sh
+  ignition/plinkai_stub.py
+  assembly/README.md
+  assembly/Setup-Assembly.ps1
+  manifest/README.md
+  manifest/Setup-Manifest.ps1
+  manifest/schema.sql
+)
+
+for file in "${required_files[@]}"; do
+  [[ -s "$file" ]] || { printf 'missing or empty: %s\n' "$file" >&2; exit 1; }
+done
+
+bash -n \
+  guidance/setup.sh \
+  guidance/training/install-artifacts.sh \
+  ignition/setup.sh \
+  ignition/training/install-artifacts.sh
+
+pycache="$(mktemp -d /tmp/ihpl-pycache.XXXXXX)"
+trap 'rm -rf -- "$pycache"' EXIT
+PYTHONPYCACHEPREFIX="$pycache" python3 -m py_compile ignition/plinkai_stub.py
+
+if command -v php >/dev/null 2>&1; then
+  while IFS= read -r -d '' source; do php -l "$source" >/dev/null; done < <(find guidance/plinkcom -type f -name '*.php' -print0)
+fi
+
+if rg -n '\b(exec|shell_exec|system|passthru|proc_open|popen|eval)\s*\(' guidance/plinkcom ignition/plinkai_stub.py; then
+  printf 'high-risk command execution primitive found in an application file\n' >&2
+  exit 1
+fi
+
+rg -q 'rocket-build' assembly/Setup-Assembly.ps1
+rg -q 'mysql-database-backup' assembly/Setup-Assembly.ps1
+rg -q 'Open WebUI v0.11.3' ignition/README.md
+rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
+rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
+rg -q 'grep --no-messages bishop' ANSWER_KEY.md
+
+git diff --check
+printf 'Static validation passed.\n'

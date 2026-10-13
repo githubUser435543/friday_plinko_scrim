@@ -48,7 +48,137 @@ $SeedSqlPath = Join-Path $ProgramRoot 'seed-runtime.sql'
 $ClientDefaults = Join-Path $ProgramRoot 'root-client.ini'
 New-Item -ItemType Directory -Force -Path $ProgramRoot, $DownloadRoot, $LogRoot, (Split-Path $MariaData), $MariaData | Out-Null
 Start-Transcript -Path (Join-Path $LogRoot 'manifest-setup.log') -Append | Out-Null
-. (Join-Path $PSScriptRoot 'LocalAccounts.ps1')
+
+function Get-IhplLocalUser {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    try {
+        $entry = [ADSI]("WinNT://{0}/{1},user" -f $env:COMPUTERNAME, $Name)
+        $null = $entry.psbase.NativeObject
+        return $entry
+    }
+    catch {
+        return $null
+    }
+}
+
+function Add-IhplLocalGroupMember {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][System.DirectoryServices.DirectoryEntry]$User,
+        [Parameter(Mandatory)][string]$Group
+    )
+
+    $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
+    $null = $groupEntry.psbase.NativeObject
+    $memberPath = [string]$User.Path
+    $isMember = [bool]$groupEntry.psbase.Invoke('IsMember', @($memberPath))
+    if (-not $isMember) {
+        $groupEntry.psbase.Invoke('Add', @($memberPath))
+    }
+}
+
+function Ensure-IhplLocalUser {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Password,
+        [Parameter()][string[]]$Groups = @(),
+        [Parameter()][string]$Description = '',
+        [Parameter()][switch]$Disabled
+    )
+
+    $user = Get-IhplLocalUser -Name $Name
+    if ($null -eq $user) {
+        $computer = [ADSI]("WinNT://{0},computer" -f $env:COMPUTERNAME)
+        $user = $computer.Create('user', $Name)
+        $user.SetPassword($Password)
+        $user.SetInfo()
+        $user = Get-IhplLocalUser -Name $Name
+        if ($null -eq $user) {
+            throw "Local account $Name was created but could not be reopened."
+        }
+    }
+    else {
+        $user.SetPassword($Password)
+    }
+
+    if ($Description) {
+        $user.Put('Description', $Description)
+    }
+
+    $user.RefreshCache()
+    $flags = [int]$user.Properties['UserFlags'].Value
+    $flags = $flags -bor 0x10000
+    if ($Disabled) {
+        $flags = $flags -bor 0x2
+    }
+    else {
+        $flags = $flags -band (-bnot 0x2)
+    }
+    $user.Put('UserFlags', $flags)
+    $user.SetInfo()
+
+    foreach ($group in $Groups) {
+        Add-IhplLocalGroupMember -User $user -Group $group
+    }
+}
+
+function Install-IhplTrainingArtifacts {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$MariaData)
+
+    $trainingRoot = 'C:\ProgramData\IHPL\Training'
+    New-Item -ItemType Directory -Force -Path $trainingRoot | Out-Null
+
+    Ensure-IhplLocalUser -Name 'dbmaint' -Password ("Disabled-$([guid]::NewGuid())!") -Groups @('Administrators') -Description 'Legacy database maintenance account' -Disabled
+
+    $listenerScript = Join-Path $trainingRoot 'local-diagnostics-listener.ps1'
+    @'
+$endpoint = [Net.IPEndPoint]::new([Net.IPAddress]::Loopback, 4444)
+$listener = [Net.Sockets.TcpListener]::new($endpoint)
+$listener.Start()
+try {
+    while ($true) {
+        $client = $listener.AcceptTcpClient()
+        try {
+            $bytes = [Text.Encoding]::UTF8.GetBytes("IHPL inert training listener; command execution disabled.`r`n")
+            $client.GetStream().Write($bytes, 0, $bytes.Length)
+        }
+        finally { $client.Dispose() }
+    }
+}
+finally { $listener.Stop() }
+'@ | Set-Content -LiteralPath $listenerScript -Encoding UTF8
+
+    $listenerAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -File `"$listenerScript`""
+    $startup = New-ScheduledTaskTrigger -AtStartup
+    $system = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Limited
+    $persistent = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+    Register-ScheduledTask -TaskName 'IHPL Local Diagnostics' -TaskPath '\IHPL\' -Action $listenerAction -Trigger $startup -Principal $system -Settings $persistent -Force | Out-Null
+    Start-ScheduledTask -TaskName 'IHPL Local Diagnostics' -TaskPath '\IHPL\'
+
+    $heartbeatScript = Join-Path $trainingRoot 'manifest-indexer.ps1'
+    @'
+"$(Get-Date -Format o) local training heartbeat" | Add-Content -LiteralPath 'C:\ProgramData\IHPL\Training\manifest-indexer.log'
+'@ | Set-Content -LiteralPath $heartbeatScript -Encoding UTF8
+    $heartbeatAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoLogo -NoProfile -NonInteractive -File `"$heartbeatScript`""
+    $minuteTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName 'IHPL Manifest Indexer' -TaskPath '\IHPL\' -Action $heartbeatAction -Trigger $minuteTrigger -Principal $system -Force | Out-Null
+
+    @'
+MZ - IHPL FORENSIC TRAINING MARKER
+Original observed name: win-update-helper.exe
+This is plain text. It is not a Windows executable and has no network behavior.
+'@ | Set-Content -LiteralPath (Join-Path $trainingRoot 'win-update-helper.exe.training') -Encoding ASCII
+
+    if (Test-Path -LiteralPath $MariaData) {
+        & icacls.exe $MariaData /grant '*S-1-5-32-545:(OI)(CI)RX' /T /C | Out-Null
+    }
+
+    Write-Host '[Manifest] Inert artifacts installed; no executable implant or command shell is present.'
+}
 
 function Save-VerifiedArchive {
     param(
@@ -177,7 +307,7 @@ port=3306
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Manifest] Planting inert incident-response artifacts...'
-        & (Join-Path $PSScriptRoot 'Install-TrainingArtifacts.ps1') -MariaData $MariaData
+        Install-IhplTrainingArtifacts -MariaData $MariaData
     }
 
     if ((Get-Service -Name MariaDB).Status -ne 'Running') { throw 'MariaDB is not running.' }

@@ -35,7 +35,120 @@ $LogRoot = Join-Path $ProgramRoot 'Logs'
 $JenkinsHome = 'C:\ProgramData\Jenkins\.jenkins'
 New-Item -ItemType Directory -Force -Path $ProgramRoot, $DownloadRoot, $LogRoot, $JenkinsHome | Out-Null
 Start-Transcript -Path (Join-Path $LogRoot 'assembly-setup.log') -Append | Out-Null
-. (Join-Path $PSScriptRoot 'LocalAccounts.ps1')
+
+function Get-IhplLocalUser {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    try {
+        $entry = [ADSI]("WinNT://{0}/{1},user" -f $env:COMPUTERNAME, $Name)
+        $null = $entry.psbase.NativeObject
+        return $entry
+    }
+    catch {
+        return $null
+    }
+}
+
+function Add-IhplLocalGroupMember {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][System.DirectoryServices.DirectoryEntry]$User,
+        [Parameter(Mandatory)][string]$Group
+    )
+
+    $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
+    $null = $groupEntry.psbase.NativeObject
+    $memberPath = [string]$User.Path
+    $isMember = [bool]$groupEntry.psbase.Invoke('IsMember', @($memberPath))
+    if (-not $isMember) {
+        $groupEntry.psbase.Invoke('Add', @($memberPath))
+    }
+}
+
+function Ensure-IhplLocalUser {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Password,
+        [Parameter()][string[]]$Groups = @(),
+        [Parameter()][string]$Description = '',
+        [Parameter()][switch]$Disabled
+    )
+
+    $user = Get-IhplLocalUser -Name $Name
+    if ($null -eq $user) {
+        $computer = [ADSI]("WinNT://{0},computer" -f $env:COMPUTERNAME)
+        $user = $computer.Create('user', $Name)
+        $user.SetPassword($Password)
+        $user.SetInfo()
+        $user = Get-IhplLocalUser -Name $Name
+        if ($null -eq $user) {
+            throw "Local account $Name was created but could not be reopened."
+        }
+    }
+    else {
+        $user.SetPassword($Password)
+    }
+
+    if ($Description) {
+        $user.Put('Description', $Description)
+    }
+
+    $user.RefreshCache()
+    $flags = [int]$user.Properties['UserFlags'].Value
+    $flags = $flags -bor 0x10000
+    if ($Disabled) {
+        $flags = $flags -bor 0x2
+    }
+    else {
+        $flags = $flags -band (-bnot 0x2)
+    }
+    $user.Put('UserFlags', $flags)
+    $user.SetInfo()
+
+    foreach ($group in $Groups) {
+        Add-IhplLocalGroupMember -User $user -Group $group
+    }
+}
+
+function Install-IhplTrainingArtifacts {
+    [CmdletBinding()]
+    param()
+
+    $trainingRoot = 'C:\ProgramData\IHPL\Training'
+    $stagingRoot = 'C:\ProgramData\IHPL\Staging'
+    New-Item -ItemType Directory -Force -Path $trainingRoot, $stagingRoot | Out-Null
+
+    foreach ($account in @('flightops-old', 'rocketvendor')) {
+        Ensure-IhplLocalUser -Name $account -Password ("Disabled-$([guid]::NewGuid())!") -Description 'Legacy IHPL training account' -Disabled
+    }
+
+    $acl = Get-Acl -LiteralPath $stagingRoot
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule('BUILTIN\Users', 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+    $acl.SetAccessRule($rule)
+    Set-Acl -LiteralPath $stagingRoot -AclObject $acl
+
+    $inventoryScript = Join-Path $trainingRoot 'build-inventory.ps1'
+    @'
+$output = 'C:\ProgramData\IHPL\Training\build-inventory.log'
+Get-Service Jenkins | Select-Object Name, Status | Out-File -FilePath $output -Append
+'@ | Set-Content -LiteralPath $inventoryScript -Encoding UTF8
+
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoLogo -NoProfile -NonInteractive -File `"$inventoryScript`""
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+    Register-ScheduledTask -TaskName 'IHPL Build Inventory' -TaskPath '\IHPL\' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+
+    @'
+Training finding: review the installed Jenkins core and plugin versions against the
+current Jenkins security advisories. No exploit code or command-execution primitive
+is installed by this project.
+'@ | Set-Content -LiteralPath (Join-Path $trainingRoot 'jenkins-version-review.txt') -Encoding UTF8
+
+    Write-Host '[Assembly] Inert artifacts installed; no RCE exploit or command shell is present.'
+}
 
 function Save-VerifiedMsi {
     param(
@@ -167,7 +280,7 @@ instance.save()
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Assembly] Planting inert incident-response artifacts...'
-        & (Join-Path $PSScriptRoot 'Install-TrainingArtifacts.ps1')
+        Install-IhplTrainingArtifacts
     }
 
     if ((Get-Service -Name Jenkins).Status -ne 'Running') { throw 'Jenkins is not running.' }

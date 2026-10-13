@@ -16,10 +16,8 @@ required_files=(
   ignition/setup.sh
   ignition/plinkai_stub.py
   assembly/README.md
-  assembly/LocalAccounts.ps1
   assembly/Setup-Assembly.ps1
   manifest/README.md
-  manifest/LocalAccounts.ps1
   manifest/Setup-Manifest.ps1
   manifest/schema.sql
 )
@@ -28,11 +26,27 @@ for file in "${required_files[@]}"; do
   [[ -s "$file" ]] || { printf 'missing or empty: %s\n' "$file" >&2; exit 1; }
 done
 
-bash -n \
-  guidance/setup.sh \
-  guidance/training/install-artifacts.sh \
-  ignition/setup.sh \
-  ignition/training/install-artifacts.sh
+assert_single_installer() {
+  local host="$1" pattern="$2" expected="$3"
+  local -a scripts=()
+  mapfile -t scripts < <(find "$host" -type f -name "$pattern" -print)
+  if [[ ${#scripts[@]} -ne 1 ]]; then
+    printf '%s must contain exactly one %s installer: %s\n' "$host" "$pattern" "$expected" >&2
+    printf 'found: %s\n' "${scripts[*]:-(none)}" >&2
+    exit 1
+  fi
+  if [[ ${scripts[0]} != "$expected" ]]; then
+    printf '%s installer must be %s; found %s\n' "$host" "$expected" "${scripts[0]}" >&2
+    exit 1
+  fi
+}
+
+assert_single_installer guidance '*.sh' guidance/setup.sh
+assert_single_installer ignition '*.sh' ignition/setup.sh
+assert_single_installer assembly '*.ps1' assembly/Setup-Assembly.ps1
+assert_single_installer manifest '*.ps1' manifest/Setup-Manifest.ps1
+
+bash -n guidance/setup.sh ignition/setup.sh
 
 if missing_database_output="$(bash guidance/setup.sh --skip-training-artifacts 2>&1)"; then
   printf 'guidance/setup.sh accepted a missing database mode\n' >&2

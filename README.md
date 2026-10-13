@@ -16,7 +16,7 @@ Change the addresses through each setup script's parameters. The scripts do not 
 ```text
                            Blue-team subnet
 
-  browser ───────► guidance:80 ─────────────► manifest:3306
+  browser ───────► guidance:80 ───────► MariaDB (local or manifest:3306)
                        │                           ▲
   SSH ───────────► guidance:22                     │
   browser ───────► ignition:80                     │
@@ -30,8 +30,8 @@ Change the addresses through each setup script's parameters. The scripts do not 
 Run the scripts from an elevated local console in this order:
 
 1. Copy this repository to each VM (or mount a read-only deployment share).
-2. On Manifest, run `manifest/Setup-Manifest.ps1` in an elevated Windows PowerShell session.
-3. On Guidance, run `sudo guidance/setup.sh` and pass Manifest's actual IP.
+2. If using remote MariaDB, run `manifest/Setup-Manifest.ps1` on Manifest in an elevated Windows PowerShell session.
+3. On Guidance, run `sudo guidance/setup.sh` with either `--manifest-ip IP` or `--local-mariadb`.
 4. On Ignition, run `sudo ignition/setup.sh`.
 5. On Assembly, run `assembly/Setup-Assembly.ps1` in an elevated Windows PowerShell session.
 6. Change all starter passwords and update the service configuration together.

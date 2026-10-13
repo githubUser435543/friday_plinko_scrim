@@ -32,11 +32,17 @@ bash -n \
   ignition/setup.sh \
   ignition/training/install-artifacts.sh
 
-if missing_manifest_output="$(bash guidance/setup.sh --skip-training-artifacts 2>&1)"; then
-  printf 'guidance/setup.sh accepted a missing --manifest-ip argument\n' >&2
+if missing_database_output="$(bash guidance/setup.sh --skip-training-artifacts 2>&1)"; then
+  printf 'guidance/setup.sh accepted a missing database mode\n' >&2
   exit 1
 fi
-grep -q -- '--manifest-ip argument is required' <<< "$missing_manifest_output"
+grep -q -- 'Exactly one database mode is required' <<< "$missing_database_output"
+
+if conflicting_database_output="$(bash guidance/setup.sh --manifest-ip 192.0.2.40 --local-mariadb 2>&1)"; then
+  printf 'guidance/setup.sh accepted conflicting database modes\n' >&2
+  exit 1
+fi
+grep -q -- 'mutually exclusive' <<< "$conflicting_database_output"
 
 pycache="$(mktemp -d /tmp/ihpl-pycache.XXXXXX)"
 trap 'rm -rf -- "$pycache"' EXIT
@@ -63,6 +69,9 @@ rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" assembly/Setup-A
 rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" manifest/Setup-Manifest.ps1
 rg -q "'jmoney'.*'operator'" manifest/schema.sql
 rg -q "'plinktern'.*'admin'" manifest/schema.sql
+rg -q -- '--local-mariadb' guidance/setup.sh
+rg -Fq 'packages+=(mariadb-server)' guidance/setup.sh
+rg -q 'bind-address=127.0.0.1' guidance/setup.sh
 
 git diff --check
 printf 'Static validation passed.\n'

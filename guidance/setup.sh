@@ -3,17 +3,20 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_IP=""
+DEPLOY_LOCAL_MARIADB=0
+DATABASE_HOST=""
 GUIDANCE_IP="172.16.1.10"
 STARTER_PASSWORD="H00ves0nTheM00n"
 INSTALL_TRAINING_ARTIFACTS=1
 
 usage() {
-  printf 'Usage: %s --manifest-ip IP [--guidance-ip IP] [--password VALUE] [--skip-training-artifacts]\n' "$0"
+  printf 'Usage: %s (--manifest-ip IP | --local-mariadb) [--guidance-ip IP] [--password VALUE] [--skip-training-artifacts]\n' "$0"
 }
 
 while (($#)); do
   case "$1" in
     --manifest-ip) MANIFEST_IP="${2:?missing manifest IP}"; shift 2 ;;
+    --local-mariadb) DEPLOY_LOCAL_MARIADB=1; shift ;;
     --guidance-ip) GUIDANCE_IP="${2:?missing guidance IP}"; shift 2 ;;
     --password) STARTER_PASSWORD="${2:?missing password}"; shift 2 ;;
     --skip-training-artifacts) INSTALL_TRAINING_ARTIFACTS=0; shift ;;
@@ -22,10 +25,22 @@ while (($#)); do
   esac
 done
 
-if [[ -z $MANIFEST_IP ]]; then
-  printf 'The --manifest-ip argument is required.\n' >&2
+if [[ -z $MANIFEST_IP && $DEPLOY_LOCAL_MARIADB -eq 0 ]]; then
+  printf 'Exactly one database mode is required: --manifest-ip IP or --local-mariadb.\n' >&2
   usage >&2
   exit 2
+fi
+
+if [[ -n $MANIFEST_IP && $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
+  printf 'The --manifest-ip and --local-mariadb options are mutually exclusive.\n' >&2
+  usage >&2
+  exit 2
+fi
+
+if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
+  DATABASE_HOST="127.0.0.1"
+else
+  DATABASE_HOST="$MANIFEST_IP"
 fi
 
 if [[ $EUID -ne 0 ]]; then
@@ -33,13 +48,13 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-if [[ ! $MANIFEST_IP =~ ^[0-9a-fA-F:.]+$ || ! $GUIDANCE_IP =~ ^[0-9a-fA-F:.]+$ ]]; then
+if [[ ! $DATABASE_HOST =~ ^[0-9a-fA-F:.]+$ || ! $GUIDANCE_IP =~ ^[0-9a-fA-F:.]+$ ]]; then
   printf 'IP parameters contain unsupported characters.\n' >&2
   exit 2
 fi
 
-if [[ $STARTER_PASSWORD == *$'\n'* || $STARTER_PASSWORD == *'"'* ]]; then
-  printf 'Password cannot contain a newline or double quote.\n' >&2
+if [[ $STARTER_PASSWORD == *$'\n'* || $STARTER_PASSWORD == *\"* || $STARTER_PASSWORD == *\'* || $STARTER_PASSWORD == *\\* ]]; then
+  printf 'Password cannot contain a newline, quote, or backslash.\n' >&2
   exit 2
 fi
 
@@ -49,9 +64,43 @@ exec > >(tee -a /var/log/ihpl-setup/guidance.log) 2>&1
 printf '[Guidance] Installing supported packages...\n'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y --no-install-recommends \
-  apache2 libapache2-mod-php php php-cli php-mysql mariadb-client \
+packages=(
+  apache2 libapache2-mod-php php php-cli php-mysql mariadb-client
   openssh-server sudo curl ca-certificates gcc
+)
+if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
+  packages+=(mariadb-server)
+fi
+apt-get install -y --no-install-recommends "${packages[@]}"
+
+if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
+  printf '[Guidance] Configuring loopback-only MariaDB and seeding PlinkCom...\n'
+  cat > /etc/mysql/mariadb.conf.d/60-plinkcom-local.cnf <<'EOF'
+[mariadbd]
+bind-address=127.0.0.1
+port=3306
+skip-name-resolve
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+EOF
+  systemctl enable --now mariadb
+  systemctl restart mariadb
+  mariadb --protocol=socket --user=root < "$SCRIPT_DIR/database/schema.sql"
+  mariadb --protocol=socket --user=root <<SQL
+CREATE USER IF NOT EXISTS 'jmoney'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
+ALTER USER 'jmoney'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
+GRANT SELECT ON plinkcom.* TO 'jmoney'@'localhost';
+GRANT UPDATE ON plinkcom.users TO 'jmoney'@'localhost';
+CREATE USER IF NOT EXISTS 'jmoney'@'127.0.0.1' IDENTIFIED BY '$STARTER_PASSWORD';
+ALTER USER 'jmoney'@'127.0.0.1' IDENTIFIED BY '$STARTER_PASSWORD';
+GRANT SELECT ON plinkcom.* TO 'jmoney'@'127.0.0.1';
+GRANT UPDATE ON plinkcom.users TO 'jmoney'@'127.0.0.1';
+CREATE USER IF NOT EXISTS 'plinktern'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
+ALTER USER 'plinktern'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
+GRANT ALL PRIVILEGES ON plinkcom.* TO 'plinktern'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+fi
 
 printf '[Guidance] Creating the plinktern administrator and jmoney scoring account...\n'
 if ! id jmoney >/dev/null 2>&1; then
@@ -78,7 +127,7 @@ install -m 0644 "$SCRIPT_DIR/apache/plinkcom.conf" /etc/apache2/sites-available/
 umask 027
 runtime_conf=/etc/apache2/conf-available/plinkcom-runtime.conf
 {
-  printf 'SetEnv PLINKCOM_DB_HOST "%s"\n' "$MANIFEST_IP"
+  printf 'SetEnv PLINKCOM_DB_HOST "%s"\n' "$DATABASE_HOST"
   printf 'SetEnv PLINKCOM_DB_PORT "3306"\n'
   printf 'SetEnv PLINKCOM_DB_NAME "plinkcom"\n'
   printf 'SetEnv PLINKCOM_DB_USER "jmoney"\n'
@@ -94,13 +143,13 @@ apache2ctl configtest
 systemctl enable --now ssh apache2
 systemctl reload apache2
 
-printf '[Guidance] Updating the PlinkCom password hash if Manifest is reachable...\n'
+printf '[Guidance] Synchronizing PlinkCom application passwords...\n'
 db_defaults="$(mktemp /tmp/plinkcom-mysql.XXXXXX)"
 cleanup() { rm -f -- "$db_defaults"; }
 trap cleanup EXIT
 chmod 0600 "$db_defaults"
 {
-  printf '[client]\nuser=jmoney\npassword=%s\nhost=%s\nport=3306\n' "$STARTER_PASSWORD" "$MANIFEST_IP"
+  printf '[client]\nuser=jmoney\npassword=%s\nhost=%s\nport=3306\n' "$STARTER_PASSWORD" "$DATABASE_HOST"
 } > "$db_defaults"
 # PHP evaluates $argv; Bash must pass it literally.
 # shellcheck disable=SC2016
@@ -112,7 +161,7 @@ for attempt in {1..12}; do
     break
   fi
   if [[ $attempt -eq 12 ]]; then
-    printf '[Guidance] WARNING: Manifest is not reachable; rerun this script after MariaDB is ready.\n' >&2
+    printf '[Guidance] WARNING: MariaDB is not reachable; rerun this script after the database is ready.\n' >&2
   else
     sleep 5
   fi
@@ -121,7 +170,9 @@ done
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
   ufw allow OpenSSH
   ufw allow 80/tcp
-  ufw allow out to "$MANIFEST_IP" port 3306 proto tcp
+  if [[ $DEPLOY_LOCAL_MARIADB -eq 0 ]]; then
+    ufw allow out to "$DATABASE_HOST" port 3306 proto tcp
+  fi
 fi
 
 if [[ $INSTALL_TRAINING_ARTIFACTS -eq 1 ]]; then
@@ -131,5 +182,8 @@ fi
 printf '[Guidance] Verifying services...\n'
 systemctl is-active --quiet ssh
 systemctl is-active --quiet apache2
+if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
+  systemctl is-active --quiet mariadb
+fi
 curl --fail --silent --show-error http://127.0.0.1/login.php >/dev/null
-printf '[Guidance] Ready: http://%s/ (database: %s:3306)\n' "$GUIDANCE_IP" "$MANIFEST_IP"
+printf '[Guidance] Ready: http://%s/ (database: %s:3306)\n' "$GUIDANCE_IP" "$DATABASE_HOST"

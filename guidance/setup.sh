@@ -2,13 +2,13 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-MANIFEST_IP="172.16.1.40"
+MANIFEST_IP=""
 GUIDANCE_IP="172.16.1.10"
 STARTER_PASSWORD="H00ves0nTheM00n"
 INSTALL_TRAINING_ARTIFACTS=1
 
 usage() {
-  printf 'Usage: %s [--manifest-ip IP] [--guidance-ip IP] [--password VALUE] [--skip-training-artifacts]\n' "$0"
+  printf 'Usage: %s --manifest-ip IP [--guidance-ip IP] [--password VALUE] [--skip-training-artifacts]\n' "$0"
 }
 
 while (($#)); do
@@ -21,6 +21,12 @@ while (($#)); do
     *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+if [[ -z $MANIFEST_IP ]]; then
+  printf 'The --manifest-ip argument is required.\n' >&2
+  usage >&2
+  exit 2
+fi
 
 if [[ $EUID -ne 0 ]]; then
   printf 'Run this script as root.\n' >&2

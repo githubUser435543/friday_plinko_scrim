@@ -10,9 +10,14 @@ function db(): mysqli
         return $connection;
     }
 
+    $databaseHost = getenv('PLINKCOM_DB_HOST');
+    if ($databaseHost === false || $databaseHost === '') {
+        throw new RuntimeException('PLINKCOM_DB_HOST is required.');
+    }
+
     mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     $connection = new mysqli(
-        getenv('PLINKCOM_DB_HOST') ?: '172.16.1.40',
+        $databaseHost,
         getenv('PLINKCOM_DB_USER') ?: 'jmoney',
         getenv('PLINKCOM_DB_PASSWORD') ?: 'H00ves0nTheM00n',
         getenv('PLINKCOM_DB_NAME') ?: 'plinkcom',

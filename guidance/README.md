@@ -15,7 +15,7 @@ sudo ./setup.sh \
 
 Supported options:
 
-- `--manifest-ip`: MariaDB host. Required unless the default is correct.
+- `--manifest-ip`: MariaDB host. This argument is required; there is no default database address.
 - `--guidance-ip`: this host's address, used in documentation and UFW rules.
 - `--password`: starter OS/PlinkCom/MariaDB password.
 - `--skip-training-artifacts`: install only the scored services.
@@ -27,7 +27,8 @@ The script is idempotent. It does not assign an interface address or enable UFW 
 ```bash
 systemctl --no-pager status ssh apache2
 curl -fsS http://127.0.0.1/api/status.php
-mysql -h 172.16.1.40 -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
+MANIFEST_IP=172.16.1.40
+mysql -h "$MANIFEST_IP" -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
 ```
 
 Browse to Guidance and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`.

@@ -32,6 +32,12 @@ bash -n \
   ignition/setup.sh \
   ignition/training/install-artifacts.sh
 
+if missing_manifest_output="$(bash guidance/setup.sh --skip-training-artifacts 2>&1)"; then
+  printf 'guidance/setup.sh accepted a missing --manifest-ip argument\n' >&2
+  exit 1
+fi
+grep -q -- '--manifest-ip argument is required' <<< "$missing_manifest_output"
+
 pycache="$(mktemp -d /tmp/ihpl-pycache.XXXXXX)"
 trap 'rm -rf -- "$pycache"' EXIT
 PYTHONPYCACHEPREFIX="$pycache" python3 -m py_compile ignition/plinkai_stub.py

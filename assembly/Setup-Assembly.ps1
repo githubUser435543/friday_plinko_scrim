@@ -177,23 +177,33 @@ function Find-CompatibleJavaHome {
         $candidates += Split-Path -Parent (Split-Path -Parent $javaCommand.Source)
     }
 
-    foreach ($root in @(
-        (Join-Path $env:ProgramFiles 'Microsoft'),
-        (Join-Path $env:ProgramFiles 'Java'),
-        (Join-Path $env:ProgramFiles 'Eclipse Adoptium')
-    )) {
-        if (Test-Path -LiteralPath $root) {
-            $candidates += Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
-                Sort-Object -Property LastWriteTimeUtc -Descending |
-                Select-Object -ExpandProperty FullName
+    $programFilesRoots = @(
+        $env:ProgramW6432
+        $env:ProgramFiles
+        [Environment]::GetEnvironmentVariable('ProgramW6432', 'Machine')
+        [Environment]::GetEnvironmentVariable('ProgramFiles', 'Machine')
+        'C:\Program Files'
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    foreach ($programFilesRoot in $programFilesRoots) {
+        foreach ($vendor in @('Microsoft', 'Java', 'Eclipse Adoptium')) {
+            $root = Join-Path $programFilesRoot $vendor
+            if (Test-Path -LiteralPath $root) {
+                $candidates += Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                    Sort-Object -Property LastWriteTimeUtc -Descending |
+                    Select-Object -ExpandProperty FullName
+            }
         }
     }
 
     foreach ($candidate in $candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) {
         $javaExe = Join-Path $candidate 'bin\java.exe'
         if (-not (Test-Path -LiteralPath $javaExe)) { continue }
-        $majorVersion = (Get-Item -LiteralPath $javaExe).VersionInfo.ProductMajorPart
-        if ($majorVersion -in @(17, 21)) {
+        $versionInfo = (Get-Item -LiteralPath $javaExe).VersionInfo
+        $versionText = @($candidate, $versionInfo.FileVersion, $versionInfo.ProductVersion) -join ' '
+        if ($versionInfo.FileMajorPart -in @(17, 21) -or
+            $versionInfo.ProductMajorPart -in @(17, 21) -or
+            $versionText -match '(?<!\d)(17|21)(?!\d)') {
             return $candidate
         }
     }
@@ -238,6 +248,7 @@ try {
     if ($null -eq $javaHome) {
         throw 'A compatible Java 17 or Java 21 installation could not be located after OpenJDK setup.'
     }
+    Write-Host "[Assembly] Using Java home: $javaHome"
     [Environment]::SetEnvironmentVariable('JAVA_HOME', $javaHome, 'Machine')
     $env:JAVA_HOME = $javaHome
     $env:Path = "$(Join-Path $javaHome 'bin');$env:Path"

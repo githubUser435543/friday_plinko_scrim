@@ -94,5 +94,12 @@ if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly
   exit 1
 fi
 
+if rg -n 'WinNT://\{0\}/\{1\},user' assembly manifest; then
+  printf 'Windows setup uses a lazy WinNT user binding that cannot reliably detect missing accounts\n' >&2
+  exit 1
+fi
+rg -q '\$computer\.Children' assembly/Setup-Assembly.ps1
+rg -q '\$computer\.Children' manifest/Setup-Manifest.ps1
+
 git diff --check
 printf 'Static validation passed.\n'

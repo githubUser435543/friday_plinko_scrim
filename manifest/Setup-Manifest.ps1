@@ -53,14 +53,13 @@ function Get-IhplLocalUser {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
 
-    try {
-        $entry = [ADSI]("WinNT://{0}/{1},user" -f $env:COMPUTERNAME, $Name)
-        $null = $entry.psbase.NativeObject
-        return $entry
+    $computer = [ADSI]("WinNT://{0},computer" -f $env:COMPUTERNAME)
+    foreach ($entry in $computer.Children) {
+        if ($entry.SchemaClassName -eq 'User' -and $entry.Name -eq $Name) {
+            return $entry
+        }
     }
-    catch {
-        return $null
-    }
+    return $null
 }
 
 function Add-IhplLocalGroupMember {

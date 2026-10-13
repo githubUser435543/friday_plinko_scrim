@@ -37,6 +37,7 @@ Browse to Assembly on TCP 8080 and sign in as `plinktern` for administration or 
 ## Notes
 
 - Jenkins home: `C:\ProgramData\Jenkins\.jenkins`
-- Installer/logs: `C:\ProgramData\IHPL`
+- Downloaded installers: `C:\ProgramData\IHPL\Downloads`
+- Setup and verbose MSI logs: `C:\ProgramData\IHPL\Logs`
 - Job output: `C:\ProgramData\IHPL\Builds`
 - The setup script never disables TLS verification and requires a valid Authenticode signature on downloaded MSI files.

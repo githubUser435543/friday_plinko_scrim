@@ -163,6 +163,44 @@ function Save-VerifiedMsi {
     }
 }
 
+function Find-CompatibleJavaHome {
+    [CmdletBinding()]
+    param()
+
+    $candidates = @(
+        $env:JAVA_HOME
+        [Environment]::GetEnvironmentVariable('JAVA_HOME', 'Machine')
+    )
+
+    $javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue
+    if ($null -ne $javaCommand) {
+        $candidates += Split-Path -Parent (Split-Path -Parent $javaCommand.Source)
+    }
+
+    foreach ($root in @(
+        (Join-Path $env:ProgramFiles 'Microsoft'),
+        (Join-Path $env:ProgramFiles 'Java'),
+        (Join-Path $env:ProgramFiles 'Eclipse Adoptium')
+    )) {
+        if (Test-Path -LiteralPath $root) {
+            $candidates += Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                Sort-Object -Property LastWriteTimeUtc -Descending |
+                Select-Object -ExpandProperty FullName
+        }
+    }
+
+    foreach ($candidate in $candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) {
+        $javaExe = Join-Path $candidate 'bin\java.exe'
+        if (-not (Test-Path -LiteralPath $javaExe)) { continue }
+        $majorVersion = (Get-Item -LiteralPath $javaExe).VersionInfo.ProductMajorPart
+        if ($majorVersion -in @(17, 21)) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
 function Wait-HttpReady {
     param([Parameter(Mandatory)][string]$Uri, [int]$Attempts = 60)
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
@@ -188,22 +226,56 @@ try {
     Ensure-IhplLocalUser -Name 'jmoney' -Password $StarterPassword -Groups @('Remote Desktop Users')
 
     Write-Host '[Assembly] Installing Microsoft OpenJDK 17 when needed...'
-    $javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue
-    if ($null -eq $javaCommand) {
+    $javaHome = Find-CompatibleJavaHome
+    if ($null -eq $javaHome) {
         $jdkMsi = Join-Path $DownloadRoot 'microsoft-jdk-17.msi'
+        $jdkLog = Join-Path $LogRoot 'openjdk-msi.log'
         Save-VerifiedMsi -Uri 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi' -Destination $jdkMsi
-        $process = Start-Process msiexec.exe -ArgumentList @('/i', $jdkMsi, '/qn', '/norestart') -Wait -PassThru
-        if ($process.ExitCode -notin @(0, 3010)) { throw "OpenJDK installer exited with $($process.ExitCode)." }
+        $process = Start-Process msiexec.exe -ArgumentList @('/i', $jdkMsi, '/qn', '/norestart', '/L*v', $jdkLog) -Wait -PassThru
+        if ($process.ExitCode -notin @(0, 3010)) { throw "OpenJDK installer exited with $($process.ExitCode). See $jdkLog." }
+        $javaHome = Find-CompatibleJavaHome
     }
+    if ($null -eq $javaHome) {
+        throw 'A compatible Java 17 or Java 21 installation could not be located after OpenJDK setup.'
+    }
+    [Environment]::SetEnvironmentVariable('JAVA_HOME', $javaHome, 'Machine')
+    $env:JAVA_HOME = $javaHome
+    $env:Path = "$(Join-Path $javaHome 'bin');$env:Path"
 
     [Environment]::SetEnvironmentVariable('JENKINS_HOME', $JenkinsHome, 'Machine')
     Write-Host "[Assembly] Installing Jenkins $JenkinsVersion when needed..."
     $jenkinsService = Get-Service -Name Jenkins -ErrorAction SilentlyContinue
     if ($null -eq $jenkinsService) {
         $jenkinsMsi = Join-Path $DownloadRoot "jenkins-$JenkinsVersion.msi"
+        $jenkinsLog = Join-Path $LogRoot 'jenkins-msi.log'
         Save-VerifiedMsi -Uri "https://get.jenkins.io/windows-stable/$JenkinsVersion/jenkins.msi" -Destination $jenkinsMsi
-        $process = Start-Process msiexec.exe -ArgumentList @('/i', $jenkinsMsi, '/qn', '/norestart') -Wait -PassThru
-        if ($process.ExitCode -notin @(0, 3010)) { throw "Jenkins installer exited with $($process.ExitCode)." }
+        $jenkinsArguments = @(
+            '/i'
+            $jenkinsMsi
+            '/qn'
+            '/norestart'
+            "JAVA_HOME=`"$javaHome`""
+            'PORT=8080'
+            'SERVICE_USERNAME=LocalSystem'
+            'SERVICE_LOGON_TYPE=ServiceLocalSystem'
+            'JENKINS_ROOT=C:\ProgramData\Jenkins\'
+            '/L*v'
+            $jenkinsLog
+        )
+        $process = Start-Process msiexec.exe -ArgumentList $jenkinsArguments -Wait -PassThru
+        if ($process.ExitCode -notin @(0, 3010)) {
+            $failure = $null
+            if (Test-Path -LiteralPath $jenkinsLog) {
+                $failure = Select-String -LiteralPath $jenkinsLog -Pattern 'Return value 3' -Context 8, 2 | Select-Object -Last 1
+            }
+            if ($null -ne $failure) {
+                Write-Host '[Assembly] Jenkins MSI failure context:'
+                $failure.Context.PreContext | ForEach-Object { Write-Host $_ }
+                Write-Host $failure.Line
+                $failure.Context.PostContext | ForEach-Object { Write-Host $_ }
+            }
+            throw "Jenkins installer exited with $($process.ExitCode). See $jenkinsLog."
+        }
     }
     else {
         Stop-Service -Name Jenkins -Force -ErrorAction SilentlyContinue

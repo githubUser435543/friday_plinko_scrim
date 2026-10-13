@@ -75,6 +75,10 @@ fi
 
 rg -q 'rocket-build' assembly/Setup-Assembly.ps1
 rg -q 'mysql-database-backup' assembly/Setup-Assembly.ps1
+rg -q 'Find-CompatibleJavaHome' assembly/Setup-Assembly.ps1
+rg -q 'JAVA_HOME=.*javaHome' assembly/Setup-Assembly.ps1
+rg -q 'SERVICE_USERNAME=LocalSystem' assembly/Setup-Assembly.ps1
+rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
 rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1

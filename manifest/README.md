@@ -17,6 +17,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Use `-SkipTrainingArtifacts` for a clean service-only build. The installer downloads the official MariaDB archive and its published SHA-256 file, verifies the archive, initializes the database, seeds PlinkCom, enables RDP, and restricts inbound TCP 3306 to Guidance and Assembly.
 
+Local accounts are managed through Windows' built-in WinNT/ADSI provider, so the installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
+
 The exact requested version is the default. If the official archive does not publish `13.1.1`, the script stops instead of silently installing a different database version; pass a version that exists only after updating the exercise requirements.
 
 ## Verification

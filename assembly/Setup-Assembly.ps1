@@ -35,34 +35,7 @@ $LogRoot = Join-Path $ProgramRoot 'Logs'
 $JenkinsHome = 'C:\ProgramData\Jenkins\.jenkins'
 New-Item -ItemType Directory -Force -Path $ProgramRoot, $DownloadRoot, $LogRoot, $JenkinsHome | Out-Null
 Start-Transcript -Path (Join-Path $LogRoot 'assembly-setup.log') -Append | Out-Null
-
-function Get-PlainCredential {
-    param([Parameter(Mandatory)][string]$Value)
-    return ConvertTo-SecureString -String $Value -AsPlainText -Force
-}
-
-function Ensure-LocalRangeUser {
-    param(
-        [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][string]$Password,
-        [Parameter(Mandatory)][string[]]$Groups
-    )
-    $securePassword = Get-PlainCredential -Value $Password
-    $existing = Get-LocalUser -Name $Name -ErrorAction SilentlyContinue
-    if ($null -eq $existing) {
-        New-LocalUser -Name $Name -Password $securePassword -PasswordNeverExpires -UserMayNotChangePassword:$false | Out-Null
-    }
-    else {
-        Set-LocalUser -Name $Name -Password $securePassword -PasswordNeverExpires $true
-        Enable-LocalUser -Name $Name
-    }
-    foreach ($group in $Groups) {
-        $present = Get-LocalGroupMember -Group $group -ErrorAction SilentlyContinue | Where-Object Name -Match "\\$([regex]::Escape($Name))$"
-        if ($null -eq $present) {
-            Add-LocalGroupMember -Group $group -Member $Name
-        }
-    }
-}
+. (Join-Path $PSScriptRoot 'LocalAccounts.ps1')
 
 function Save-VerifiedMsi {
     param(
@@ -99,8 +72,8 @@ try {
     if (-not (Get-NetFirewallRule -DisplayName 'IHPL RDP 3389' -ErrorAction SilentlyContinue)) {
         New-NetFirewallRule -DisplayName 'IHPL RDP 3389' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -Profile Any | Out-Null
     }
-    Ensure-LocalRangeUser -Name 'plinktern' -Password $StarterPassword -Groups @('Administrators', 'Remote Desktop Users')
-    Ensure-LocalRangeUser -Name 'jmoney' -Password $StarterPassword -Groups @('Remote Desktop Users')
+    Ensure-IhplLocalUser -Name 'plinktern' -Password $StarterPassword -Groups @('Administrators', 'Remote Desktop Users')
+    Ensure-IhplLocalUser -Name 'jmoney' -Password $StarterPassword -Groups @('Remote Desktop Users')
 
     Write-Host '[Assembly] Installing Microsoft OpenJDK 17 when needed...'
     $javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue

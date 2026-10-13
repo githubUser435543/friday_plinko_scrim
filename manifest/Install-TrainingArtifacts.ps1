@@ -9,15 +9,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $TrainingRoot = 'C:\ProgramData\IHPL\Training'
 New-Item -ItemType Directory -Force -Path $TrainingRoot | Out-Null
+. (Join-Path $PSScriptRoot 'LocalAccounts.ps1')
 
-if (-not (Get-LocalUser -Name 'dbmaint' -ErrorAction SilentlyContinue)) {
-    $password = ConvertTo-SecureString -String ("Disabled-$([guid]::NewGuid())!") -AsPlainText -Force
-    New-LocalUser -Name 'dbmaint' -Password $password -Description 'Legacy database maintenance account' | Out-Null
-}
-if (-not (Get-LocalGroupMember -Group 'Administrators' -ErrorAction SilentlyContinue | Where-Object Name -Match '\\dbmaint$')) {
-    Add-LocalGroupMember -Group 'Administrators' -Member 'dbmaint'
-}
-Disable-LocalUser -Name 'dbmaint'
+Ensure-IhplLocalUser -Name 'dbmaint' -Password ("Disabled-$([guid]::NewGuid())!") -Groups @('Administrators') -Description 'Legacy database maintenance account' -Disabled
 
 $listenerScript = Join-Path $TrainingRoot 'local-diagnostics-listener.ps1'
 @'

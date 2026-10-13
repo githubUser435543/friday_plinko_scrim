@@ -16,8 +16,10 @@ required_files=(
   ignition/setup.sh
   ignition/plinkai_stub.py
   assembly/README.md
+  assembly/LocalAccounts.ps1
   assembly/Setup-Assembly.ps1
   manifest/README.md
+  manifest/LocalAccounts.ps1
   manifest/Setup-Manifest.ps1
   manifest/schema.sql
 )
@@ -65,13 +67,18 @@ rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
 rg -q 'grep --no-messages bishop' ANSWER_KEY.md
 rg -q "useradd --create-home --shell /bin/bash plinktern" guidance/setup.sh
 rg -q "useradd --create-home --shell /bin/bash plinktern" ignition/setup.sh
-rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" assembly/Setup-Assembly.ps1
-rg -q "Ensure-LocalRangeUser -Name 'plinktern'.*Administrators" manifest/Setup-Manifest.ps1
+rg -q "Ensure-IhplLocalUser -Name 'plinktern'.*Administrators" assembly/Setup-Assembly.ps1
+rg -q "Ensure-IhplLocalUser -Name 'plinktern'.*Administrators" manifest/Setup-Manifest.ps1
 rg -q "'jmoney'.*'operator'" manifest/schema.sql
 rg -q "'plinktern'.*'admin'" manifest/schema.sql
 rg -q -- '--local-mariadb' guidance/setup.sh
 rg -Fq 'packages+=(mariadb-server)' guidance/setup.sh
 rg -q 'bind-address=127.0.0.1' guidance/setup.sh
+
+if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly manifest; then
+  printf 'Windows setup still depends on the unavailable LocalAccounts cmdlets\n' >&2
+  exit 1
+fi
 
 git diff --check
 printf 'Static validation passed.\n'

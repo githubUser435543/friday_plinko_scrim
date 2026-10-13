@@ -8,13 +8,10 @@ $ErrorActionPreference = 'Stop'
 $TrainingRoot = 'C:\ProgramData\IHPL\Training'
 $StagingRoot = 'C:\ProgramData\IHPL\Staging'
 New-Item -ItemType Directory -Force -Path $TrainingRoot, $StagingRoot | Out-Null
+. (Join-Path $PSScriptRoot 'LocalAccounts.ps1')
 
 foreach ($account in @('flightops-old', 'rocketvendor')) {
-    if (-not (Get-LocalUser -Name $account -ErrorAction SilentlyContinue)) {
-        $randomPassword = ConvertTo-SecureString -String ("Disabled-$([guid]::NewGuid())!") -AsPlainText -Force
-        New-LocalUser -Name $account -Password $randomPassword -Description 'Legacy IHPL training account' | Out-Null
-    }
-    Disable-LocalUser -Name $account
+    Ensure-IhplLocalUser -Name $account -Password ("Disabled-$([guid]::NewGuid())!") -Description 'Legacy IHPL training account' -Disabled
 }
 
 $acl = Get-Acl -LiteralPath $StagingRoot

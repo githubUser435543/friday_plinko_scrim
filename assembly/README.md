@@ -19,6 +19,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Use `-SkipTrainingArtifacts` for a clean service-only build. The script enables RDP, creates `plinktern` and `jmoney`, installs Microsoft OpenJDK 17 and the pinned Jenkins MSI from official HTTPS endpoints, seeds Jenkins, and opens only TCP 8080 for Jenkins.
 
+Local accounts are managed through Windows' built-in WinNT/ADSI provider, so the installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
+
 The default Jenkins version is a maintained baseline. A working RCE or exploit PoC is deliberately not included; use the benign version-review artifact for the patch-management exercise.
 
 ## Verification

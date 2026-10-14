@@ -21,7 +21,7 @@ Use `-SkipTrainingArtifacts` for a clean service-only build. The script enables 
 
 Local accounts are created and password-managed with Windows' built-in `net.exe`, then configured and verified through WinNT/ADSI. The installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
 
-The default Jenkins version is a maintained baseline. A working RCE or exploit PoC is deliberately not included; use the benign version-review artifact for the patch-management exercise.
+The findings include unauthorized Jenkins users, anonymous read access, enabled legacy RDP users, and a Users-writable batch file executed every minute as SYSTEM. The Jenkins Windows service also runs as LocalSystem, so authenticated Jenkins administrators have operating-system command execution through job configuration.
 
 ## Verification
 

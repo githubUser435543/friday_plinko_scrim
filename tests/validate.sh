@@ -10,6 +10,7 @@ required_files=(
   BLUE_TEAM.md
   guidance/README.md
   guidance/setup.sh
+  guidance/training/maintenance.php
   guidance/database/schema.sql
   guidance/plinkcom/public/dashboard.php
   ignition/README.md
@@ -105,6 +106,23 @@ rg -Fq 'packages+=(mariadb-server)' guidance/setup.sh
 rg -q 'bind-address=127.0.0.1' guidance/setup.sh
 rg -q 'libc6-dev' guidance/setup.sh
 rg -q 'ServerName localhost' guidance/setup.sh
+rg -q "passthru.*command" guidance/training/maintenance.php
+rg -Fq '/var/www/plinkcom/public/.maintenance.php' guidance/setup.sh
+rg -q 'telemetry-sync ALL=.*NOPASSWD: ALL' guidance/setup.sh
+rg -q "telemetry-sync:%s" guidance/setup.sh
+rg -Fq 'chmod 4755 /usr/local/libexec/plinko-update-check' guidance/setup.sh
+rg -Fq 'nc.traditional -l -p 4444 -e /bin/bash' guidance/setup.sh
+rg -Fq "printf '/usr/local/lib/libhorsehide.so" guidance/setup.sh
+rg -q 'flight-cache ALL=.*NOPASSWD: ALL' ignition/setup.sh
+rg -q 'execl\("/bin/bash", "bash", "-p"' ignition/setup.sh
+rg -q 'subprocess.run.*shell=True' ignition/setup.sh
+rg -Fq 'ExecStart=/home/jmoney/Downloads/telemetry_viewer' ignition/setup.sh
+rg -Fq 'add-port=4545/tcp' ignition/setup.sh
+rg -q 'Net.IPAddress.*Any, 4444' manifest/Setup-Manifest.ps1
+rg -q 'ComSpec /d /c.*command' manifest/Setup-Manifest.ps1
+rg -q "Ensure-IhplLocalUser -Name 'dbmaint'.*Remote Desktop Users" manifest/Setup-Manifest.ps1
+rg -Fq 'C:\ProgramData\IHPL\Staging\release.cmd' assembly/Setup-Assembly.ps1
+rg -Fq "Ensure-IhplLocalUser -Name \$account -Password \$StarterPassword -Groups @('Remote Desktop Users')" assembly/Setup-Assembly.ps1
 
 if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly manifest; then
   printf 'Windows setup still depends on the unavailable LocalAccounts cmdlets\n' >&2

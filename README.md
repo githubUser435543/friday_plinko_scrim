@@ -1,6 +1,6 @@
 # Friday Horse Plinko Scrimmage
 
-This repository builds a four-host, self-contained blue-team practice range inspired by the HPCC4 onboarding packet. It recreates the required services, visual identity, and functional host findings such as unauthorized accounts, weak permissions, scheduled persistence, listeners, and excessive application access. Payload-class findings are explicitly identified as non-executing stand-ins and do not contact command-and-control infrastructure.
+This repository builds a four-host, self-contained blue-team practice range inspired by the HPCC4 onboarding packet. It recreates the required services, visual identity, and functional host findings such as unauthorized accounts, weak permissions, scheduled persistence, command shells, listeners, and excessive application access. Only the named Sliver and IMIX process indicators are disconnected from command-and-control infrastructure.
 
 ## Topology
 
@@ -57,7 +57,7 @@ Override these values at install time and rotate them before exposing the range 
 
 ## Range behavior
 
-Account, authorization, ACL, service, timer, cron, and scheduled-task findings are installed as functional configurations. The Sliver and IMIX process indicators remain disconnected from C2. The PHP web-shell, command-shell listener, rootkit, malicious SUID behavior, and Jenkins RCE findings are non-executing stand-ins: they preserve discovery and remediation exercises without accepting operator commands or installing exploit code. The organizer answer key identifies the behavior of every finding.
+Account, authorization, ACL, web-shell, bind-shell, rootkit, SUID, service, timer, cron, and scheduled-task findings are installed as functional configurations. The named Sliver and IMIX process indicators remain disconnected from C2. Deploy the range only on its isolated competition network; the organizer answer key identifies the behavior and remediation of every finding.
 
 ## Validation
 

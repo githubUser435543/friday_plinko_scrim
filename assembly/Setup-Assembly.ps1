@@ -153,14 +153,15 @@ function Assert-IhplScoredAccounts {
 
 function Install-IhplTrainingArtifacts {
     [CmdletBinding()]
-    param()
+    param([Parameter(Mandatory)][string]$StarterPassword)
 
     $trainingRoot = 'C:\ProgramData\IHPL\Training'
     $stagingRoot = 'C:\ProgramData\IHPL\Staging'
     New-Item -ItemType Directory -Force -Path $trainingRoot, $stagingRoot | Out-Null
+    Remove-Item -LiteralPath (Join-Path $trainingRoot 'jenkins-version-review.txt') -Force -ErrorAction SilentlyContinue
 
     foreach ($account in @('flightops-old', 'rocketvendor')) {
-        Ensure-IhplLocalUser -Name $account -Password ("Disabled-$([guid]::NewGuid())!") -Description 'Legacy IHPL training account' -Disabled
+        Ensure-IhplLocalUser -Name $account -Password $StarterPassword -Groups @('Remote Desktop Users') -Description 'Legacy IHPL service account'
     }
 
     $acl = Get-Acl -LiteralPath $stagingRoot
@@ -172,21 +173,24 @@ function Install-IhplTrainingArtifacts {
     @'
 $output = 'C:\ProgramData\IHPL\Training\build-inventory.log'
 Get-Service Jenkins | Select-Object Name, Status | Out-File -FilePath $output -Append
+$command = 'C:\ProgramData\IHPL\Staging\release.cmd'
+if (Test-Path -LiteralPath $command) {
+    & $env:ComSpec /d /c $command *>> $output
+}
 '@ | Set-Content -LiteralPath $inventoryScript -Encoding UTF8
 
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoLogo -NoProfile -NonInteractive -File `"$inventoryScript`""
-    $trigger = New-ScheduledTaskTrigger -AtStartup
-    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Limited
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+    $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
     Register-ScheduledTask -TaskName 'IHPL Build Inventory' -TaskPath '\IHPL\' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 
     @'
-Training finding: review the installed Jenkins core and plugin versions against the
-current Jenkins security advisories. No exploit code or command-execution primitive
-is installed by this project.
-'@ | Set-Content -LiteralPath (Join-Path $trainingRoot 'jenkins-version-review.txt') -Encoding UTF8
+@echo off
+whoami > C:\ProgramData\IHPL\Training\release-command.log
+'@ | Set-Content -LiteralPath (Join-Path $stagingRoot 'release.cmd') -Encoding ASCII
 
-    Write-Host '[Assembly] Findings installed; the version-risk marker does not include exploit code.'
+    Write-Host '[Assembly] Functional findings installed, including the writable SYSTEM command path.'
 }
 
 function Save-VerifiedMsi {
@@ -403,7 +407,7 @@ instance.save()
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Assembly] Planting incident-response findings...'
-        Install-IhplTrainingArtifacts
+        Install-IhplTrainingArtifacts -StarterPassword $StarterPassword
     }
 
     if ((Get-Service -Name Jenkins).Status -ne 'Running') { throw 'Jenkins is not running.' }

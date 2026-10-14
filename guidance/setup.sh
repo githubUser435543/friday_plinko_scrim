@@ -173,7 +173,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 packages=(
   apache2 libapache2-mod-php php php-cli php-mysql mariadb-client
-  openssh-server sudo curl ca-certificates gcc
+  openssh-server sudo curl ca-certificates gcc libc6-dev
 )
 if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
   packages+=(mariadb-server)
@@ -240,6 +240,7 @@ install -m 0644 "$SCRIPT_DIR/apache/plinkcom.conf" /etc/apache2/sites-available/
 umask 027
 runtime_conf=/etc/apache2/conf-available/plinkcom-runtime.conf
 {
+  printf 'ServerName localhost\n'
   printf 'SetEnv PLINKCOM_DB_HOST "%s"\n' "$DATABASE_HOST"
   printf 'SetEnv PLINKCOM_DB_PORT "3306"\n'
   printf 'SetEnv PLINKCOM_DB_NAME "plinkcom"\n'

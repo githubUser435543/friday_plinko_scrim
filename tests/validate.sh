@@ -103,6 +103,8 @@ rg -q "'plinktern'.*'admin'" manifest/schema.sql
 rg -q -- '--local-mariadb' guidance/setup.sh
 rg -Fq 'packages+=(mariadb-server)' guidance/setup.sh
 rg -q 'bind-address=127.0.0.1' guidance/setup.sh
+rg -q 'libc6-dev' guidance/setup.sh
+rg -q 'ServerName localhost' guidance/setup.sh
 
 if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly manifest; then
   printf 'Windows setup still depends on the unavailable LocalAccounts cmdlets\n' >&2

@@ -13,6 +13,11 @@ required_files=(
   guidance/training/maintenance.php
   guidance/database/schema.sql
   guidance/plinkcom/public/dashboard.php
+  guidance/plinkcom/public/my-rocket.php
+  guidance/plinkcom/public/cargo.php
+  guidance/plinkcom/public/mission-logs.php
+  guidance/plinkcom/public/crew-manifest.php
+  guidance/plinkcom/public/attachments.php
   ignition/README.md
   ignition/setup.sh
   ignition/plinkai_stub.py
@@ -69,10 +74,24 @@ if command -v php >/dev/null 2>&1; then
   while IFS= read -r -d '' source; do php -l "$source" >/dev/null; done < <(find guidance/plinkcom -type f -name '*.php' -print0)
 fi
 
-if rg -n '\b(exec|shell_exec|system|passthru|proc_open|popen|eval)\s*\(' guidance/plinkcom ignition/plinkai_stub.py; then
+if rg -n '\b(exec|shell_exec|system|passthru|proc_open|popen|eval)\s*\(' guidance/plinkcom ignition/plinkai_stub.py --glob '!cargo.php'; then
   printf 'high-risk command execution primitive found in an application file\n' >&2
   exit 1
 fi
+
+rg -Fq "nav_item('/my-rocket.php', 'My Rocket'" guidance/plinkcom/app/bootstrap.php
+rg -Fq "nav_item('/cargo.php', 'Cargo'" guidance/plinkcom/app/bootstrap.php
+rg -Fq "nav_item('/mission-logs.php', 'Mission Logs'" guidance/plinkcom/app/bootstrap.php
+rg -Fq "nav_item('/crew-manifest.php', 'Crew Manifest'" guidance/plinkcom/app/bootstrap.php
+rg -Fq "nav_item('/attachments.php', 'Attachments'" guidance/plinkcom/app/bootstrap.php
+rg -q 'shell_exec.*\$seal' guidance/plinkcom/public/cargo.php
+rg -q 'include \$source' guidance/plinkcom/public/mission-logs.php
+rg -q 'LIKE.*\$search' guidance/plinkcom/public/crew-manifest.php
+rg -q 'move_uploaded_file' guidance/plinkcom/public/attachments.php
+rg -q 'UPDATE rockets SET' guidance/plinkcom/public/my-rocket.php
+rg -q 'CREATE TABLE IF NOT EXISTS crew_members' guidance/database/schema.sql manifest/schema.sql
+rg -q 'GRANT UPDATE ON plinkcom.rockets' guidance/setup.sh manifest/Setup-Manifest.ps1
+rg -Fq '/var/www/plinkcom/public/uploads' guidance/setup.sh
 
 rg -q 'rocket-build' assembly/Setup-Assembly.ps1
 rg -q 'mysql-database-backup' assembly/Setup-Assembly.ps1

@@ -215,10 +215,12 @@ CREATE USER IF NOT EXISTS 'jmoney'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD'
 ALTER USER 'jmoney'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
 GRANT SELECT ON plinkcom.* TO 'jmoney'@'localhost';
 GRANT UPDATE ON plinkcom.users TO 'jmoney'@'localhost';
+GRANT UPDATE ON plinkcom.rockets TO 'jmoney'@'localhost';
 CREATE USER IF NOT EXISTS 'jmoney'@'127.0.0.1' IDENTIFIED BY '$STARTER_PASSWORD';
 ALTER USER 'jmoney'@'127.0.0.1' IDENTIFIED BY '$STARTER_PASSWORD';
 GRANT SELECT ON plinkcom.* TO 'jmoney'@'127.0.0.1';
 GRANT UPDATE ON plinkcom.users TO 'jmoney'@'127.0.0.1';
+GRANT UPDATE ON plinkcom.rockets TO 'jmoney'@'127.0.0.1';
 CREATE USER IF NOT EXISTS 'plinktern'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
 ALTER USER 'plinktern'@'localhost' IDENTIFIED BY '$STARTER_PASSWORD';
 GRANT ALL PRIVILEGES ON plinkcom.* TO 'plinktern'@'localhost';
@@ -252,6 +254,7 @@ cp -a "$SCRIPT_DIR/plinkcom/public" /var/www/plinkcom/public
 chown -R root:www-data /var/www/plinkcom
 find /var/www/plinkcom -type d -exec chmod 0755 {} +
 find /var/www/plinkcom -type f -exec chmod 0644 {} +
+install -d -o www-data -g www-data -m 0775 /var/www/plinkcom/public/uploads
 
 install -m 0644 "$SCRIPT_DIR/apache/plinkcom.conf" /etc/apache2/sites-available/plinkcom.conf
 umask 027

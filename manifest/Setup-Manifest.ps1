@@ -326,6 +326,7 @@ CREATE USER IF NOT EXISTS 'jmoney'@'$GuidanceIp' IDENTIFIED BY '$StarterPassword
 ALTER USER 'jmoney'@'$GuidanceIp' IDENTIFIED BY '$StarterPassword';
 GRANT SELECT ON plinkcom.* TO 'jmoney'@'$GuidanceIp';
 GRANT UPDATE ON plinkcom.users TO 'jmoney'@'$GuidanceIp';
+GRANT UPDATE ON plinkcom.rockets TO 'jmoney'@'$GuidanceIp';
 CREATE USER IF NOT EXISTS 'jmoney'@'localhost' IDENTIFIED BY '$StarterPassword';
 ALTER USER 'jmoney'@'localhost' IDENTIFIED BY '$StarterPassword';
 GRANT SELECT ON plinkcom.* TO 'jmoney'@'localhost';

@@ -95,9 +95,12 @@ function page_top(string $title, string $active = '/dashboard.php'): void
 HTML;
     echo nav_item('/dashboard.php', 'Dashboard', '◆', $active);
     echo '<p class="nav-label">FLIGHT</p>';
+    echo nav_item('/my-rocket.php', 'My Rocket', '◇', $active);
+    echo '<p class="nav-label">OPERATIONS</p>';
+    echo nav_item('/cargo.php', 'Cargo', '▣', $active);
     echo nav_item('/mission-logs.php', 'Mission Logs', '⌁', $active);
     echo nav_item('/crew-manifest.php', 'Crew Manifest', '◌', $active);
-    echo nav_item('/alerts.php', 'Alerts', '△', $active);
+    echo nav_item('/attachments.php', 'Attachments', '⌕', $active);
     echo '<div class="sidebar-foot"><span>IHPL // SECURE OPS</span><small>LINK ENCRYPTION: ACTIVE<br>NET: GUIDANCE / 01</small></div></aside><main class="content">';
 }
 

@@ -33,11 +33,31 @@ CREATE TABLE IF NOT EXISTS mission_events (
     CONSTRAINT fk_event_rocket FOREIGN KEY (rocket_id) REFERENCES rockets(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS crew_members (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(128) NOT NULL,
+    role VARCHAR(96) NOT NULL,
+    assignment VARCHAR(160) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE'
+);
+
+
+
 INSERT INTO users (username, display_name, password_hash, role, active)
 VALUES
     ('jmoney', 'J-Money', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'operator', 1),
     ('plinktern', 'Plinktern Administrator', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'admin', 1)
 ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), active = 1;
+
+INSERT INTO crew_members (id, full_name, role, assignment, status)
+VALUES
+    (1, 'J-Money', 'Flight Director', 'Guidance authority and mission command', 'ACTIVE'),
+    (2, 'PlinkAI', 'Autonomous Pilot', 'EQUUS I flight-control core', 'ACTIVE'),
+    (3, 'Horse Unit 07', 'Mission Specialist', 'Lunar payload operations', 'NOMINAL'),
+    (4, 'Dr. Hayley Trotter', 'Payload Scientist', 'Plinko Sauce stability', 'ACTIVE'),
+    (5, 'Kevin Kiderchah XIV', 'Mission Director', 'Executive launch approval', 'REMOTE')
+ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), role = VALUES(role), assignment = VALUES(assignment), status = VALUES(status);
+
 
 INSERT INTO rockets (callsign, mission, status, phase, altitude_km, velocity_kms, fuel_percent, engine_temp_c)
 VALUES ('EQUUS I', 'Mission Fortuna', 'NOMINAL', 'ORBITAL INSERTION', 384402.00, 1.287, 67.40, 118.60)

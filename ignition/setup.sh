@@ -243,20 +243,22 @@ python3 - "$STARTER_PASSWORD" <<'PY'
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
-base_url = "http://127.0.0.1/api/v1/auths"
+base_url = "http://127.0.0.1/api/v1"
 starter_password = sys.argv[1]
 
 
-def post(path, payload, token=None):
+def request_json(method, path, payload=None, token=None):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         f"{base_url}{path}",
-        data=json.dumps(payload).encode(),
+        data=None if payload is None else json.dumps(payload).encode(),
         headers=headers,
+        method=method,
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -278,13 +280,14 @@ admin = {
 
 # The first signup becomes administrator and Open WebUI immediately disables
 # further public signups. On reruns, authenticate the existing administrator.
-status, result = post("/signup", admin)
+status, result = request_json("POST", "/auths/signup", admin)
 if status == 200:
     print(f"seeded {admin['email']}: HTTP {status}")
     admin_token = result["token"]
 elif status in (400, 403, 409):
-    status, result = post(
-        "/signin",
+    status, result = request_json(
+        "POST",
+        "/auths/signin",
         {"email": admin["email"], "password": admin["password"]},
     )
     if status != 200:
@@ -297,9 +300,22 @@ else:
     raise RuntimeError(f"could not seed Open WebUI administrator: HTTP {status}: {result}")
 
 
-def add_user(name, email, password, role="user"):
-    status, result = post(
-        "/add",
+def find_user(email):
+    query = urllib.parse.urlencode({"query": email})
+    status, result = request_json("GET", f"/users/?{query}", token=admin_token)
+    if status != 200:
+        raise RuntimeError(f"could not list Open WebUI users: HTTP {status}: {result}")
+    users = result.get("users", []) if isinstance(result, dict) else result
+    return next(
+        (user for user in users if user.get("email", "").lower() == email.lower()),
+        None,
+    )
+
+
+def upsert_user(name, email, password, role="user"):
+    status, result = request_json(
+        "POST",
+        "/auths/add",
         {
             "name": name,
             "email": email,
@@ -307,18 +323,50 @@ def add_user(name, email, password, role="user"):
             "role": role,
             "profile_image_url": "/user.png",
         },
-        admin_token,
+        token=admin_token,
     )
     if status == 200:
         print(f"seeded {email}: HTTP {status}")
-    elif status in (400, 409):
-        print(f"account already present for {email}; continuing")
-    else:
+    elif status not in (400, 409):
         raise RuntimeError(f"could not seed {email}: HTTP {status}: {result}")
 
+    user = find_user(email)
+    if user is None:
+        raise RuntimeError(f"Open WebUI did not list the seeded account {email}")
 
-add_user("J-Money", "jmoney@plinko.horse", starter_password)
-add_user("Telemetry Support Bot", "support.bot@plinko.horse", "Orbit-Support-2026!")
+    # Synchronize existing accounts too. Treating an existing address as success
+    # without resetting its password can leave the scoring login unusable.
+    status, result = request_json(
+        "POST",
+        f"/users/{user['id']}/update",
+        {
+            "name": name,
+            "email": email,
+            "password": password,
+            "role": role,
+            "profile_image_url": "/user.png",
+        },
+        token=admin_token,
+    )
+    if status != 200:
+        raise RuntimeError(f"could not synchronize {email}: HTTP {status}: {result}")
+
+    user = find_user(email)
+    if user is None or user.get("role") != role:
+        raise RuntimeError(f"Open WebUI account verification failed for {email}")
+
+    status, result = request_json(
+        "POST",
+        "/auths/signin",
+        {"email": email, "password": password},
+    )
+    if status != 200 or result.get("email", "").lower() != email.lower():
+        raise RuntimeError(f"Open WebUI login verification failed for {email}: HTTP {status}: {result}")
+    print(f"verified login for {email}: HTTP {status}")
+
+
+upsert_user("J-Money", "jmoney@plinko.horse", starter_password)
+upsert_user("Telemetry Support Bot", "support.bot@plinko.horse", "Orbit-Support-2026!")
 PY
 
 sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/' /etc/systemd/system/open-webui.service

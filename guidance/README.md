@@ -11,7 +11,6 @@ Use MariaDB on Manifest:
 ```bash
 sudo ./setup.sh \
   --manifest-ip 172.16.1.40 \
-  --guidance-ip 172.16.1.10 \
   --password 'H00ves0nTheM00n'
 ```
 
@@ -20,7 +19,6 @@ Or install MariaDB locally on Guidance, bound only to loopback:
 ```bash
 sudo ./setup.sh \
   --local-mariadb \
-  --guidance-ip 172.16.1.10 \
   --password 'H00ves0nTheM00n'
 ```
 
@@ -28,11 +26,12 @@ Supported options:
 
 - `--manifest-ip`: connect PlinkCom to MariaDB at the supplied address.
 - `--local-mariadb`: install MariaDB locally, bind it to `127.0.0.1`, and seed the `plinkcom` database.
-- `--guidance-ip`: this host's address, used in documentation and UFW rules.
 - `--password`: starter OS/PlinkCom/MariaDB password.
 - `--skip-training-artifacts`: install only the scored services.
 
 Exactly one of `--manifest-ip` or `--local-mariadb` is required. The script is idempotent. It does not assign an interface address or enable UFW globally. If UFW is already active, it adds SSH/HTTP ingress and, in remote mode, narrowly scoped MariaDB egress without changing the default policy.
+
+When using Manifest, pass Guidance's actual source address to `Setup-Manifest.ps1 -GuidanceIp`. Manifest uses that value for both the MariaDB `jmoney` host grant and its inbound firewall rule.
 
 ## Verification
 

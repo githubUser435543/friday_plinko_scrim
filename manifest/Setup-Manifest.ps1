@@ -6,9 +6,9 @@ param(
     [ValidatePattern('^[0-9a-fA-F:.]+$')]
     [string]$ManifestIp = '172.16.1.40',
 
-    [Parameter()]
+    [Parameter(Mandatory = $true)]
     [ValidatePattern('^[0-9a-fA-F:.]+$')]
-    [string]$GuidanceIp = '172.16.1.10',
+    [string]$GuidanceIp,
 
     [Parameter()]
     [ValidatePattern('^[0-9a-fA-F:.]+$')]

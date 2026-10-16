@@ -66,6 +66,11 @@ if conflicting_database_output="$(bash guidance/setup.sh --manifest-ip 192.0.2.4
 fi
 grep -q -- 'mutually exclusive' <<< "$conflicting_database_output"
 
+if bash guidance/setup.sh --help | grep -q -- '--guidance-ip'; then
+  printf 'guidance/setup.sh still accepts its own address as an argument\n' >&2
+  exit 1
+fi
+
 pycache="$(mktemp -d /tmp/ihpl-pycache.XXXXXX)"
 trap 'rm -rf -- "$pycache"' EXIT
 PYTHONPYCACHEPREFIX="$pycache" python3 -m py_compile ignition/plinkai_stub.py
@@ -103,6 +108,11 @@ rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
 rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
+rg -q '\[Parameter\(Mandatory = \$true\)\][[:space:]]*$' manifest/Setup-Manifest.ps1
+if rg -q '\[string\]\$GuidanceIp[[:space:]]*=' manifest/Setup-Manifest.ps1; then
+  printf 'Manifest GuidanceIp must not have a silent default\n' >&2
+  exit 1
+fi
 rg -q 'grep --no-messages bishop' ANSWER_KEY.md
 rg -q 'functional host findings' README.md
 rg -q 'Sliver-like process indicator disconnected from C2' ANSWER_KEY.md

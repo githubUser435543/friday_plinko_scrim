@@ -10,12 +10,14 @@ Open 64-bit Windows PowerShell as Administrator:
 Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-Manifest.ps1 `
   -ManifestIp 172.16.1.40 `
-  -GuidanceIp 172.16.1.10 `
+  -GuidanceIp 198.18.4.209 `
   -AssemblyIp 172.16.1.30 `
   -StarterPassword 'H00ves0nTheM00n'
 ```
 
 Use `-SkipTrainingArtifacts` for a clean service-only build. The installer downloads the official MariaDB archive and its published SHA-256 file, verifies the archive, initializes the database, seeds PlinkCom, enables RDP, and restricts inbound TCP 3306 to Guidance and Assembly.
+
+`-GuidanceIp` is required and must be the source address MariaDB sees for the Guidance host. The installer creates `jmoney` with that exact MariaDB host grant and uses the same address in the Windows firewall rule. If MariaDB reports `Host '198.18.4.209' is not allowed to connect`, rerun the installer with `-GuidanceIp 198.18.4.209`.
 
 Local accounts are created and password-managed with Windows' built-in `net.exe`, then configured and verified through WinNT/ADSI. The installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
 

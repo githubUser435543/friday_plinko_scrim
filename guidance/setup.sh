@@ -5,12 +5,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_IP=""
 DEPLOY_LOCAL_MARIADB=0
 DATABASE_HOST=""
-GUIDANCE_IP="172.16.1.10"
 STARTER_PASSWORD="H00ves0nTheM00n"
 INSTALL_TRAINING_ARTIFACTS=1
 
 usage() {
-  printf 'Usage: %s (--manifest-ip IP | --local-mariadb) [--guidance-ip IP] [--password VALUE] [--skip-training-artifacts]\n' "$0"
+  printf 'Usage: %s (--manifest-ip IP | --local-mariadb) [--password VALUE] [--skip-training-artifacts]\n' "$0"
 }
 
 install_training_artifacts() {
@@ -140,7 +139,6 @@ while (($#)); do
   case "$1" in
     --manifest-ip) MANIFEST_IP="${2:?missing manifest IP}"; shift 2 ;;
     --local-mariadb) DEPLOY_LOCAL_MARIADB=1; shift ;;
-    --guidance-ip) GUIDANCE_IP="${2:?missing guidance IP}"; shift 2 ;;
     --password) STARTER_PASSWORD="${2:?missing password}"; shift 2 ;;
     --skip-training-artifacts) INSTALL_TRAINING_ARTIFACTS=0; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -171,8 +169,8 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-if [[ ! $DATABASE_HOST =~ ^[0-9a-fA-F:.]+$ || ! $GUIDANCE_IP =~ ^[0-9a-fA-F:.]+$ ]]; then
-  printf 'IP parameters contain unsupported characters.\n' >&2
+if [[ ! $DATABASE_HOST =~ ^[0-9a-fA-F:.]+$ ]]; then
+  printf 'The database IP contains unsupported characters.\n' >&2
   exit 2
 fi
 
@@ -321,4 +319,4 @@ if [[ $DEPLOY_LOCAL_MARIADB -eq 1 ]]; then
   systemctl is-active --quiet mariadb
 fi
 curl --fail --silent --show-error http://127.0.0.1/login.php >/dev/null
-printf '[Guidance] Ready: http://%s/ (database: %s:3306)\n' "$GUIDANCE_IP" "$DATABASE_HOST"
+printf '[Guidance] Ready: PlinkCom is served by Apache (database: %s:3306)\n' "$DATABASE_HOST"

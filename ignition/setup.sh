@@ -217,14 +217,15 @@ Type=simple
 Restart=always
 RestartSec=5
 ExecStartPre=-/usr/bin/podman rm -f open-webui
-ExecStart=/usr/bin/podman run --name open-webui --log-driver=journald -p 80:8080 -v /var/lib/open-webui:/app/backend/data:Z -e WEBUI_NAME=PlinkAI -e WEBUI_AUTH=true -e ENABLE_SIGNUP=true -e DEFAULT_USER_ROLE=user -e ENABLE_OLLAMA_API=false -e ENABLE_OPENAI_API=true -e OPENAI_API_BASE_URL=http://host.containers.internal:11435/v1 -e OPENAI_API_BASE_URLS=http://host.containers.internal:11435/v1 -e OPENAI_API_KEY=ihpl-local-only -e OPENAI_API_KEYS=ihpl-local-only ghcr.io/open-webui/open-webui:${OPEN_WEBUI_VERSION}
+ExecStart=/usr/bin/podman run --name open-webui --log-driver=journald -p 80:8080 -v /var/lib/open-webui:/app/backend/data:Z -e WEBUI_NAME=PlinkAI -e WEBUI_AUTH=true -e ENABLE_SIGNUP=false -e DEFAULT_USER_ROLE=user -e ENABLE_OLLAMA_API=false -e ENABLE_OPENAI_API=true -e OPENAI_API_BASE_URL=http://host.containers.internal:11435/v1 -e OPENAI_API_BASE_URLS=http://host.containers.internal:11435/v1 -e OPENAI_API_KEY=ihpl-local-only -e OPENAI_API_KEYS=ihpl-local-only ghcr.io/open-webui/open-webui:${OPEN_WEBUI_VERSION}
 ExecStop=/usr/bin/podman stop -t 20 open-webui
 
 [Install]
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable --now open-webui.service
+systemctl enable open-webui.service
+systemctl restart open-webui.service
 
 printf '[Ignition] Waiting for Open WebUI...\n'
 for attempt in {1..60}; do
@@ -279,8 +280,8 @@ admin = {
     "password": starter_password,
 }
 
-# The first signup becomes administrator and Open WebUI immediately disables
-# further public signups. On reruns, authenticate the existing administrator.
+# Open WebUI permits its first administrator bootstrap while public signup is
+# disabled. On reruns, authenticate the existing administrator.
 status, result = request_json("POST", "/auths/signup", admin)
 if status == 200:
     print(f"seeded {admin['email']}: HTTP {status}")
@@ -364,9 +365,10 @@ def upsert_user(name, email, password, role="user"):
     if status != 200 or result.get("email", "").lower() != email.lower():
         raise RuntimeError(f"Open WebUI login verification failed for {email}: HTTP {status}: {result}")
     print(f"verified login for {email}: HTTP {status}")
+    return result["token"]
 
 
-upsert_user("J-Money", "jmoney@plinko.horse", starter_password)
+jmoney_token = upsert_user("J-Money", "jmoney@plinko.horse", starter_password)
 upsert_user("Telemetry Support Bot", "support.bot@plinko.horse", "Orbit-Support-2026!")
 
 # Connection settings persist in Open WebUI's database and override container
@@ -389,46 +391,30 @@ if status != 200 or result.get("OPENAI_API_BASE_URLS") != [plinkai_url]:
 
 status, result = request_json(
     "GET",
-    "/openai/models",
-    token=admin_token,
+    "/api/models",
+    token=jmoney_token,
     request_base_url=origin,
 )
 models = result.get("data", []) if isinstance(result, dict) else []
 if status != 200 or not any(model.get("id") == "PlinkAI" for model in models):
-    raise RuntimeError(f"Open WebUI could not load PlinkAI: HTTP {status}: {str(result)[:500]}")
+    raise RuntimeError(f"jmoney cannot see PlinkAI: HTTP {status}: {str(result)[:500]}")
 
 status, result = request_json(
     "POST",
-    "/openai/chat/completions",
+    "/api/chat/completions",
     {
         "model": "PlinkAI",
         "messages": [{"role": "user", "content": "PlinkAI readiness check"}],
         "stream": False,
     },
-    token=admin_token,
+    token=jmoney_token,
     request_base_url=origin,
 )
 choices = result.get("choices", []) if isinstance(result, dict) else []
 if status != 200 or not choices:
-    raise RuntimeError(f"PlinkAI completion verification failed: HTTP {status}: {str(result)[:500]}")
-print("verified Open WebUI to PlinkAI completion: HTTP 200")
+    raise RuntimeError(f"jmoney PlinkAI completion verification failed: HTTP {status}: {str(result)[:500]}")
+print("verified jmoney model visibility and PlinkAI completion: HTTP 200")
 PY
-
-sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/' /etc/systemd/system/open-webui.service
-systemctl daemon-reload
-systemctl restart open-webui.service
-
-for attempt in {1..60}; do
-  if curl --fail --silent http://127.0.0.1/health >/dev/null; then
-    break
-  fi
-  if [[ $attempt -eq 60 ]]; then
-    journalctl --no-pager -u open-webui.service -n 80
-    printf 'Open WebUI did not become ready after its final restart.\n' >&2
-    exit 1
-  fi
-  sleep 2
-done
 
 if [[ $INSTALL_TRAINING_ARTIFACTS -eq 1 ]]; then
   install_training_artifacts

@@ -123,8 +123,15 @@ rg -Fq 'f"/users/{user['"'"'id'"'"']}/update"' ignition/setup.sh
 rg -Fq 'verified login for {email}' ignition/setup.sh
 rg -Fq 'headers["Authorization"] = f"Bearer {token}"' ignition/setup.sh
 rg -Fq '"/openai/config/update"' ignition/setup.sh
-rg -Fq '"/openai/chat/completions"' ignition/setup.sh
-rg -Fq 'verified Open WebUI to PlinkAI completion: HTTP 200' ignition/setup.sh
+rg -Fq '"/api/models"' ignition/setup.sh
+rg -Fq '"/api/chat/completions"' ignition/setup.sh
+rg -Fq 'token=jmoney_token' ignition/setup.sh
+rg -Fq 'verified jmoney model visibility and PlinkAI completion: HTTP 200' ignition/setup.sh
+rg -Fq 'ENABLE_SIGNUP=false' ignition/setup.sh
+if rg -Fq "sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/'" ignition/setup.sh; then
+  printf 'Ignition still restarts Open WebUI after configuring PlinkAI\n' >&2
+  exit 1
+fi
 if rg -q "seed_user .*jmoney@plinko\.horse|seed_user .*support\.bot@plinko\.horse" ignition/setup.sh; then
   printf 'Ignition still seeds secondary Open WebUI accounts through public signup\n' >&2
   exit 1

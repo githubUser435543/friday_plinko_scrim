@@ -14,9 +14,9 @@ sudo ./setup.sh \
 
 Use `--skip-training-artifacts` for a clean service-only build. Re-running the command refreshes the container and configuration without deleting `/var/lib/open-webui`.
 
-The first Open WebUI signup becomes the administrator and automatically disables public signup. The installer then authenticates as that administrator and creates or synchronizes the `jmoney` and unauthorized `support.bot` accounts through Open WebUI's authenticated user-management API. It verifies that both accounts appear in the administrator's user list and can sign in before setup continues. This also lets a rerun repair a previous run that stopped immediately after creating `plinktern@plinko.horse`.
+Public signup stays disabled while Open WebUI permits the installer to bootstrap the first administrator. The installer then authenticates as that administrator and creates or synchronizes the `jmoney` and unauthorized `support.bot` accounts through Open WebUI's authenticated user-management API. It verifies that both accounts appear in the administrator's user list and can sign in before setup continues. This also lets a rerun repair a previous run that stopped immediately after creating `plinktern@plinko.horse`.
 
-The installer also overwrites Open WebUI's persistent OpenAI-compatible connection with `http://host.containers.internal:11435/v1`, loads the `PlinkAI` model through that connection, and completes a test prompt. This repairs persisted connection values that route model requests back to the Open WebUI frontend and return its HTML as a 500 error.
+The installer also overwrites Open WebUI's persistent OpenAI-compatible connection with `http://host.containers.internal:11435/v1`, signs in as `jmoney`, confirms that `PlinkAI` appears through the browser-facing model API, and completes a test prompt. This happens after Open WebUI starts in its final configuration, so the verification covers the same service instance and endpoints used after setup exits.
 
 ## Verification
 

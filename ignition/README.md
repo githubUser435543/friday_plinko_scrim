@@ -14,6 +14,8 @@ sudo ./setup.sh \
 
 Use `--skip-training-artifacts` for a clean service-only build. Re-running the command refreshes the container and configuration without deleting `/var/lib/open-webui`.
 
+The first Open WebUI signup becomes the administrator and automatically disables public signup. The installer then authenticates as that administrator and creates the `jmoney` and support accounts through Open WebUI's authenticated user-management API. This also lets a rerun finish after a previous run stopped immediately after creating `plinktern@plinko.horse`.
+
 ## Verification
 
 ```bash

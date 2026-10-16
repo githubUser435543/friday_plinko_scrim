@@ -239,31 +239,87 @@ for attempt in {1..60}; do
   sleep 5
 done
 
-seed_user() {
-  local name="$1" email="$2" password="$3"
-  python3 - "$name" "$email" "$password" <<'PY'
+python3 - "$STARTER_PASSWORD" <<'PY'
 import json
 import sys
 import urllib.error
 import urllib.request
 
-name, email, password = sys.argv[1:]
-body = json.dumps({"name": name, "email": email, "password": password}).encode()
-request = urllib.request.Request("http://127.0.0.1/api/v1/auths/signup", data=body, headers={"Content-Type": "application/json"})
-try:
-    with urllib.request.urlopen(request, timeout=15) as response:
-        print(f"seeded {email}: HTTP {response.status}")
-except urllib.error.HTTPError as error:
-    if error.code in (400, 409):
-        print(f"account already present or signup rejected for {email}; continuing")
-    else:
-        raise
-PY
+base_url = "http://127.0.0.1/api/v1/auths"
+starter_password = sys.argv[1]
+
+
+def post(path, payload, token=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        f"{base_url}{path}",
+        data=json.dumps(payload).encode(),
+        headers=headers,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, json.load(response)
+    except urllib.error.HTTPError as error:
+        response_body = error.read().decode(errors="replace")
+        try:
+            response_body = json.loads(response_body)
+        except json.JSONDecodeError:
+            pass
+        return error.code, response_body
+
+
+admin = {
+    "name": "Plinktern Administrator",
+    "email": "plinktern@plinko.horse",
+    "password": starter_password,
 }
 
-seed_user 'Plinktern Administrator' 'plinktern@plinko.horse' "$STARTER_PASSWORD"
-seed_user 'J-Money' 'jmoney@plinko.horse' "$STARTER_PASSWORD"
-seed_user 'Telemetry Support Bot' 'support.bot@plinko.horse' 'Orbit-Support-2026!'
+# The first signup becomes administrator and Open WebUI immediately disables
+# further public signups. On reruns, authenticate the existing administrator.
+status, result = post("/signup", admin)
+if status == 200:
+    print(f"seeded {admin['email']}: HTTP {status}")
+    admin_token = result["token"]
+elif status in (400, 403, 409):
+    status, result = post(
+        "/signin",
+        {"email": admin["email"], "password": admin["password"]},
+    )
+    if status != 200:
+        raise RuntimeError(
+            f"could not authenticate existing Open WebUI administrator: HTTP {status}: {result}"
+        )
+    print(f"authenticated existing {admin['email']}: HTTP {status}")
+    admin_token = result["token"]
+else:
+    raise RuntimeError(f"could not seed Open WebUI administrator: HTTP {status}: {result}")
+
+
+def add_user(name, email, password, role="user"):
+    status, result = post(
+        "/add",
+        {
+            "name": name,
+            "email": email,
+            "password": password,
+            "role": role,
+            "profile_image_url": "/user.png",
+        },
+        admin_token,
+    )
+    if status == 200:
+        print(f"seeded {email}: HTTP {status}")
+    elif status in (400, 409):
+        print(f"account already present for {email}; continuing")
+    else:
+        raise RuntimeError(f"could not seed {email}: HTTP {status}: {result}")
+
+
+add_user("J-Money", "jmoney@plinko.horse", starter_password)
+add_user("Telemetry Support Bot", "support.bot@plinko.horse", "Orbit-Support-2026!")
+PY
 
 sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/' /etc/systemd/system/open-webui.service
 systemctl daemon-reload

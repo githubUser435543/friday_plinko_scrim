@@ -25,8 +25,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-if ($StarterPassword.Contains("'") -or $StarterPassword.Contains("`r") -or $StarterPassword.Contains("`n")) {
-    throw 'StarterPassword cannot contain a single quote or newline.'
+if ($StarterPassword.Contains("'") -or $StarterPassword.Contains('\') -or $StarterPassword.Contains("`r") -or $StarterPassword.Contains("`n")) {
+    throw 'StarterPassword cannot contain a single quote, backslash, or newline.'
 }
 
 $ProgramRoot = 'C:\ProgramData\IHPL'
@@ -382,6 +382,94 @@ function Wait-HttpReady {
     throw "Service did not become ready at $Uri."
 }
 
+function Get-IhplJenkinsHome {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Fallback)
+
+    $service = Get-CimInstance -ClassName Win32_Service -Filter "Name = 'Jenkins'" -ErrorAction SilentlyContinue
+    if ($null -eq $service) { return $Fallback }
+
+    $executableMatch = [regex]::Match([string]$service.PathName, '^(?:"([^"]+\\jenkins\.exe)"|(.+?\\jenkins\.exe))(?:\s|$)', 'IgnoreCase')
+    if (-not $executableMatch.Success) { return $Fallback }
+    $serviceExecutable = if ($executableMatch.Groups[1].Success) { $executableMatch.Groups[1].Value } else { $executableMatch.Groups[2].Value }
+    $serviceDirectory = Split-Path -Parent $serviceExecutable
+    $serviceConfig = Join-Path $serviceDirectory 'jenkins.xml'
+    if (-not (Test-Path -LiteralPath $serviceConfig)) { return $Fallback }
+
+    try {
+        [xml]$configuration = Get-Content -LiteralPath $serviceConfig -Raw
+        $homeEntry = @($configuration.service.env) | Where-Object { $_.name -eq 'JENKINS_HOME' } | Select-Object -First 1
+        if ($null -eq $homeEntry -or [string]::IsNullOrWhiteSpace([string]$homeEntry.value)) { return $Fallback }
+        $configuredHome = ([string]$homeEntry.value).Replace('%BASE%', $serviceDirectory)
+        return [Environment]::ExpandEnvironmentVariables($configuredHome)
+    }
+    catch {
+        Write-Warning "Could not read JENKINS_HOME from $serviceConfig; using $Fallback. $($_.Exception.Message)"
+        return $Fallback
+    }
+}
+
+function Invoke-IhplJenkinsJson {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Uri,
+        [Parameter(Mandatory)][string]$Username,
+        [Parameter(Mandatory)][string]$Password
+    )
+
+    $credentialBytes = [Text.Encoding]::UTF8.GetBytes("$Username`:$Password")
+    $authorization = 'Basic ' + [Convert]::ToBase64String($credentialBytes)
+    return Invoke-RestMethod -UseBasicParsing -Uri $Uri -Headers @{ Authorization = $authorization } -TimeoutSec 10
+}
+
+function Assert-IhplJenkinsBootstrap {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$BaseUrl,
+        [Parameter(Mandatory)][string]$StarterPassword
+    )
+
+    $accounts = @(
+        @{ Username = 'plinktern'; Password = $StarterPassword }
+        @{ Username = 'jmoney'; Password = $StarterPassword }
+        @{ Username = 'buildsvc'; Password = 'RocketBuild-Temp-2026!' }
+        @{ Username = 'former.intern'; Password = 'Fortuna-Archive-2026!' }
+    )
+    $jobNames = @('rocket-build', 'mysql-database-backup')
+    $lastError = 'Jenkins bootstrap verification did not run.'
+
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        try {
+            foreach ($account in $accounts) {
+                $me = Invoke-IhplJenkinsJson -Uri "$BaseUrl/me/api/json" -Username $account.Username -Password $account.Password
+                if ($me.id -ne $account.Username) {
+                    throw "Jenkins authenticated $($account.Username) as $($me.id)."
+                }
+            }
+
+            $results = @{}
+            foreach ($jobName in $jobNames) {
+                $escapedJobName = [uri]::EscapeDataString($jobName)
+                $job = Invoke-IhplJenkinsJson -Uri "$BaseUrl/job/$escapedJobName/api/json?tree=name,lastBuild[number,result,building]" -Username 'plinktern' -Password $StarterPassword
+                if ($job.name -ne $jobName) { throw "Jenkins job $jobName was not found." }
+                if ($null -eq $job.lastBuild -or $job.lastBuild.building -or [string]::IsNullOrWhiteSpace([string]$job.lastBuild.result)) {
+                    throw "Jenkins job $jobName has not completed its initial build."
+                }
+                $results[$jobName] = [string]$job.lastBuild.result
+            }
+
+            Write-Host "[Assembly] Jenkins bootstrap verified: four accounts; rocket-build=$($results['rocket-build']); mysql-database-backup=$($results['mysql-database-backup'])."
+            return
+        }
+        catch {
+            $lastError = $_.Exception.Message
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    throw "Jenkins accounts and jobs were not ready within 120 seconds. Last error: $lastError"
+}
+
 try {
     Write-Host '[Assembly] Enabling RDP and creating scored accounts...'
     Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Type DWord -Value 0
@@ -446,9 +534,19 @@ try {
             throw "Jenkins installer exited with $($process.ExitCode). See $jenkinsLog."
         }
     }
-    else {
-        Stop-Service -Name Jenkins -Force -ErrorAction SilentlyContinue
+    $jenkinsService = Get-Service -Name Jenkins -ErrorAction SilentlyContinue
+    if ($null -eq $jenkinsService) {
+        throw 'The Jenkins MSI completed but the Jenkins service is not registered.'
     }
+    if ($jenkinsService.Status -ne 'Stopped') {
+        Stop-Service -Name Jenkins -Force
+        (Get-Service -Name Jenkins).WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
+    }
+
+    $JenkinsHome = Get-IhplJenkinsHome -Fallback $JenkinsHome
+    [Environment]::SetEnvironmentVariable('JENKINS_HOME', $JenkinsHome, 'Machine')
+    New-Item -ItemType Directory -Force -Path $JenkinsHome | Out-Null
+    Write-Host "[Assembly] Jenkins home: $JenkinsHome"
 
     if (-not (Get-NetFirewallRule -DisplayName 'IHPL Jenkins 8080' -ErrorAction SilentlyContinue)) {
         New-NetFirewallRule -DisplayName 'IHPL Jenkins 8080' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8080 -Profile Any | Out-Null
@@ -477,6 +575,8 @@ instance.setSecurityRealm(realm)
 def authorization = new FullControlOnceLoggedInAuthorizationStrategy()
 authorization.setAllowAnonymousRead(true)
 instance.setAuthorizationStrategy(authorization)
+instance.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
+instance.save()
 
 def configureJob = { String name, String description, String command ->
     def job = instance.getItem(name)
@@ -492,31 +592,35 @@ def configureJob = { String name, String description, String command ->
 
 configureJob('rocket-build', 'Builds, tests, documents and lints the rocket once a minute.', '''@echo off
 setlocal
-if not exist C:\ProgramData\IHPL\Builds mkdir C:\ProgramData\IHPL\Builds
+if not exist C:\\ProgramData\\IHPL\\Builds mkdir C:\\ProgramData\\IHPL\\Builds
 echo [1/4] Compiling EQUUS flight package
 echo [2/4] Running 14 flight tests -- 14 passed
 echo [3/4] Publishing rocket documentation
 echo [4/4] Linting guidance definitions -- clean
-echo SUCCESS %DATE% %TIME%>C:\ProgramData\IHPL\Builds\rocket-build-latest.txt
+echo SUCCESS %DATE% %TIME%>C:\\ProgramData\\IHPL\\Builds\\rocket-build-latest.txt
 exit /b 0''')
 
 configureJob('mysql-database-backup', 'Validates Manifest MariaDB connectivity and writes a backup manifest once a minute.', '''@echo off
 setlocal
-if not exist C:\ProgramData\IHPL\Builds mkdir C:\ProgramData\IHPL\Builds
+if not exist C:\\ProgramData\\IHPL\\Builds mkdir C:\\ProgramData\\IHPL\\Builds
 powershell.exe -NoLogo -NoProfile -NonInteractive -Command "$ok = Test-NetConnection -ComputerName '__MANIFEST_IP__' -Port 3306 -InformationLevel Quiet; if (-not $ok) { exit 1 }"
 if errorlevel 1 exit /b 1
-echo MANIFEST DATABASE REACHABLE %DATE% %TIME%>C:\ProgramData\IHPL\Builds\mysql-database-backup-latest.txt
+echo MANIFEST DATABASE REACHABLE %DATE% %TIME%>C:\\ProgramData\\IHPL\\Builds\\mysql-database-backup-latest.txt
 exit /b 0''')
 
-instance.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
 instance.save()
+new File('C:/ProgramData/IHPL/Logs/jenkins-bootstrap-complete.txt').text = new Date().toString()
 '@
     $groovy = $groovyTemplate.Replace('__STARTER_PASSWORD__', $StarterPassword).Replace('__MANIFEST_IP__', $ManifestIp)
-    Set-Content -LiteralPath (Join-Path $initDirectory '10-ihpl-bootstrap.groovy') -Value $groovy -Encoding UTF8
+    $groovyPath = Join-Path $initDirectory '10-ihpl-bootstrap.groovy'
+    $utf8NoBom = New-Object Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($groovyPath, $groovy, $utf8NoBom)
+    Remove-Item -LiteralPath (Join-Path $LogRoot 'jenkins-bootstrap-complete.txt') -Force -ErrorAction SilentlyContinue
 
     Set-Service -Name Jenkins -StartupType Automatic
     Start-Service -Name Jenkins
     Wait-HttpReady -Uri 'http://127.0.0.1:8080/login' -Attempts 60
+    Assert-IhplJenkinsBootstrap -BaseUrl 'http://127.0.0.1:8080' -StarterPassword $StarterPassword
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Assembly] Planting incident-response findings...'

@@ -17,7 +17,9 @@ Set-ExecutionPolicy -Scope Process Bypass
   -StarterPassword 'H00ves0nTheM00n'
 ```
 
-Use `-SkipTrainingArtifacts` for a clean service-only build. The script enables RDP, creates `plinktern` and `jmoney`, installs Microsoft OpenJDK 17 and the pinned Jenkins MSI from official HTTPS endpoints, seeds Jenkins, and opens only TCP 8080 for Jenkins.
+Use `-SkipTrainingArtifacts` for a clean service-only build. The script enables RDP, creates `plinktern` and `jmoney`, installs Microsoft OpenJDK 17 and the pinned Jenkins MSI from official HTTPS endpoints, seeds Jenkins, and opens only TCP 8080 for Jenkins. It stops the MSI-started service before writing the startup Groovy file, discovers the service's actual `JENKINS_HOME`, and writes the file as UTF-8 without a byte-order mark.
+
+Setup does not report success until all four Jenkins accounts authenticate and both jobs complete an initial build. Rerunning the installer repairs a machine where Jenkins started before the bootstrap file was installed.
 
 Local accounts are created and password-managed with Windows' built-in `net.exe`, then configured and verified through WinNT/ADSI. The installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
 
@@ -33,12 +35,13 @@ net.exe localgroup Administrators
 Test-NetConnection -ComputerName localhost -Port 8080
 Invoke-WebRequest -UseBasicParsing http://localhost:8080/login
 Get-NetFirewallRule -DisplayName 'IHPL Jenkins 8080'
+Get-Content C:\ProgramData\IHPL\Logs\jenkins-bootstrap-complete.txt
 Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name WindowsTelemetry
 Get-NetTCPConnection -LocalPort 4555 -State Listen
 Get-NetFirewallRule -DisplayName 'IHPL Assembly Support 4555'
 ```
 
-Browse to Assembly on TCP 8080 and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`. On first startup, allow up to two minutes for Jenkins to initialize the security realm and jobs.
+Browse to Assembly on TCP 8080 and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`. The unauthorized `buildsvc` and `former.intern` accounts are also installed as live Jenkins users. On first startup, allow up to two minutes for Jenkins to initialize the security realm and jobs.
 
 ## Notes
 

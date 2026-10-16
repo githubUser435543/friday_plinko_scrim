@@ -104,6 +104,12 @@ rg -Fq '/var/www/plinkcom/public/uploads' guidance/setup.sh
 
 rg -q 'rocket-build' assembly/Setup-Assembly.ps1
 rg -q 'mysql-database-backup' assembly/Setup-Assembly.ps1
+rg -Fq 'function Assert-IhplJenkinsBootstrap' assembly/Setup-Assembly.ps1
+rg -Fq '[IO.File]::WriteAllText($groovyPath, $groovy, $utf8NoBom)' assembly/Setup-Assembly.ps1
+rg -Fq "Get-IhplJenkinsHome -Fallback \$JenkinsHome" assembly/Setup-Assembly.ps1
+rg -q 'Stop-Service -Name Jenkins.*Force' assembly/Setup-Assembly.ps1
+rg -Fq 'Jenkins bootstrap verified: four accounts' assembly/Setup-Assembly.ps1
+rg -Fq 'C:\\ProgramData\\IHPL\\Builds' assembly/Setup-Assembly.ps1
 rg -q 'Find-CompatibleJavaHome' assembly/Setup-Assembly.ps1
 rg -q 'ProgramW6432' assembly/Setup-Assembly.ps1
 rg -q 'JAVA_HOME=.*javaHome' assembly/Setup-Assembly.ps1

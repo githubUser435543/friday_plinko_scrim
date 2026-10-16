@@ -49,7 +49,7 @@ mysql -h "$MANIFEST_IP" -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
 
 Browse to Guidance and sign in as `plinktern` for administration or `jmoney` for scoring. Both OS accounts initially use `H00ves0nTheM00n`; `plinktern` belongs to `sudo` and `jmoney` does not.
 
-The PlinkCom sidebar provides Dashboard, My Rocket, Cargo, Mission Logs, Crew Manifest, and Attachments. The range intentionally installs one direct web vulnerability on each operational page: missing update authorization, command injection, local file inclusion, SQL injection, and unrestricted executable upload. See the organizer-only answer key for proof and remediation steps.
+The PlinkCom sidebar provides Dashboard, My Rocket, Cargo, Mission Logs, Crew Manifest, Attachments, and Profile. The Profile page lets the signed-in operator change their application username and password after confirming their current password. The range intentionally installs one direct web vulnerability on each operational page: missing update authorization, command injection, local file inclusion, SQL injection, and unrestricted executable upload. See the organizer-only answer key for proof and remediation steps.
 
 ## Dependency change
 

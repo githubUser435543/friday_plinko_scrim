@@ -18,6 +18,7 @@ required_files=(
   guidance/plinkcom/public/mission-logs.php
   guidance/plinkcom/public/crew-manifest.php
   guidance/plinkcom/public/attachments.php
+  guidance/plinkcom/public/profile.php
   ignition/README.md
   ignition/setup.sh
   ignition/plinkai_stub.py
@@ -89,6 +90,9 @@ rg -Fq "nav_item('/cargo.php', 'Cargo'" guidance/plinkcom/app/bootstrap.php
 rg -Fq "nav_item('/mission-logs.php', 'Mission Logs'" guidance/plinkcom/app/bootstrap.php
 rg -Fq "nav_item('/crew-manifest.php', 'Crew Manifest'" guidance/plinkcom/app/bootstrap.php
 rg -Fq "nav_item('/attachments.php', 'Attachments'" guidance/plinkcom/app/bootstrap.php
+rg -Fq "nav_item('/profile.php', 'Profile'" guidance/plinkcom/app/bootstrap.php
+rg -q 'password_verify.*current_password' guidance/plinkcom/public/profile.php
+rg -q 'UPDATE users SET username' guidance/plinkcom/public/profile.php
 rg -q 'shell_exec.*\$seal' guidance/plinkcom/public/cargo.php
 rg -q 'include \$source' guidance/plinkcom/public/mission-logs.php
 rg -q 'LIKE.*\$search' guidance/plinkcom/public/crew-manifest.php

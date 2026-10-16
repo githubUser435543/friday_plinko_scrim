@@ -43,11 +43,11 @@ CREATE TABLE IF NOT EXISTS crew_members (
 
 
 
-INSERT INTO users (username, display_name, password_hash, role, active)
+INSERT INTO users (id, username, display_name, password_hash, role, active)
 VALUES
-    ('jmoney', 'J-Money', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'operator', 1),
-    ('plinktern', 'Plinktern Administrator', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'admin', 1)
-ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), active = 1;
+    (1, 'jmoney', 'J-Money', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'operator', 1),
+    (2, 'plinktern', 'Plinktern Administrator', '$2b$12$5YJoIlMy4qpRdwC9W9fTDegu0kYa9j0T/HOz.QiqEHhs/ZsQiSDHi', 'admin', 1)
+ON DUPLICATE KEY UPDATE active = 1;
 
 INSERT INTO crew_members (id, full_name, role, assignment, status)
 VALUES

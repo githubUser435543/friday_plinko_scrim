@@ -12,6 +12,7 @@ image="ihpl-plinkcom-smoke:${suffix}"
 cookie_jar="$(mktemp /tmp/ihpl-cookie.XXXXXX)"
 login_page="$(mktemp /tmp/ihpl-login.XXXXXX)"
 dashboard_page="$(mktemp /tmp/ihpl-dashboard.XXXXXX)"
+profile_page="$(mktemp /tmp/ihpl-profile.XXXXXX)"
 uploads_dir="$(mktemp -d /tmp/ihpl-uploads.XXXXXX)"
 upload_payload="$(mktemp /tmp/ihpl-upload.XXXXXX.php)"
 
@@ -19,7 +20,7 @@ cleanup() {
   docker rm -f "$application" "$database" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
   docker image rm "$image" >/dev/null 2>&1 || true
-  rm -f -- "$cookie_jar" "$login_page" "$dashboard_page" "$upload_payload"
+  rm -f -- "$cookie_jar" "$login_page" "$dashboard_page" "$profile_page" "$upload_payload"
   rm -rf -- "$uploads_dir"
   rm -rf -- "$DOCKER_CONFIG"
 }
@@ -66,9 +67,34 @@ curl -fsS -L -b "$cookie_jar" -c "$cookie_jar" \
   --data-urlencode 'password=H00ves0nTheM00n' \
   "$base_url/login.php" > "$dashboard_page"
 grep -q 'EQUUS I' "$dashboard_page"
-for route in my-rocket.php cargo.php mission-logs.php crew-manifest.php attachments.php; do
+for route in my-rocket.php cargo.php mission-logs.php crew-manifest.php attachments.php profile.php; do
   grep -q "/$route" "$dashboard_page"
 done
+
+curl -fsS -b "$cookie_jar" -c "$cookie_jar" "$base_url/profile.php" > "$profile_page"
+profile_csrf="$(sed -n 's/.*name="csrf" value="\([^"]*\)".*/\1/p' "$profile_page" | head -1)"
+[[ -n $profile_csrf ]] || { printf 'No profile CSRF token found.\n' >&2; exit 1; }
+updated_username="jmoney-${suffix}"
+updated_password='Moonshot-Profile-2026!'
+curl -fsS -b "$cookie_jar" -c "$cookie_jar" \
+  --data-urlencode "csrf=$profile_csrf" \
+  --data-urlencode "username=$updated_username" \
+  --data-urlencode 'current_password=H00ves0nTheM00n' \
+  --data-urlencode "new_password=$updated_password" \
+  --data-urlencode "confirm_password=$updated_password" \
+  "$base_url/profile.php" > "$profile_page"
+grep -q 'OPERATOR PROFILE UPDATED' "$profile_page"
+grep -q "$updated_username" "$profile_page"
+
+curl -fsS -b "$cookie_jar" -c "$cookie_jar" "$base_url/logout.php" >/dev/null
+curl -fsS -c "$cookie_jar" "$base_url/login.php" > "$login_page"
+csrf="$(sed -n 's/.*name="csrf" value="\([^"]*\)".*/\1/p' "$login_page" | head -1)"
+curl -fsS -L -b "$cookie_jar" -c "$cookie_jar" \
+  --data-urlencode "csrf=$csrf" \
+  --data-urlencode "username=$updated_username" \
+  --data-urlencode "password=$updated_password" \
+  "$base_url/login.php" > "$dashboard_page"
+grep -q 'EQUUS I' "$dashboard_page"
 
 curl -fsS -b "$cookie_jar" \
   --data-urlencode 'id=1' \

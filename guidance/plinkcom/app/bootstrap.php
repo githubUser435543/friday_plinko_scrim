@@ -73,6 +73,8 @@ function page_top(string $title, string $active = '/dashboard.php'): void
 {
     start_session();
     $user = e($_SESSION['user']['display_name'] ?? 'Flight Operator');
+    $operatorMark = e(strtoupper(substr((string) ($_SESSION['user']['display_name'] ?? 'F'), 0, 1)));
+    $role = e(strtoupper((string) ($_SESSION['user']['role'] ?? 'operator')));
     $safeTitle = e($title);
     echo <<<HTML
 <!doctype html>
@@ -87,7 +89,7 @@ function page_top(string $title, string $active = '/dashboard.php'): void
 <header class="topbar">
   <a class="brand" href="/dashboard.php"><span class="crest">♞</span><span><b>PLINKCOM</b><small>IHPL OPS NETWORK</small></span></a>
   <div class="system-title">INTERNATIONAL HORSE PLINKO LEAGUE <strong>OPERATIONS DIVISION</strong></div>
-  <div class="operator"><span class="operator-mark">J</span><span><b>{$user}</b><small>FLIGHT OPERATOR</small></span><a href="/logout.php">SIGN OUT</a></div>
+  <div class="operator"><span class="operator-mark">{$operatorMark}</span><a class="operator-profile" href="/profile.php"><b>{$user}</b><small>{$role}</small></a><a href="/logout.php">SIGN OUT</a></div>
 </header>
 <div class="shell">
   <aside class="sidebar">
@@ -101,6 +103,8 @@ HTML;
     echo nav_item('/mission-logs.php', 'Mission Logs', '⌁', $active);
     echo nav_item('/crew-manifest.php', 'Crew Manifest', '◌', $active);
     echo nav_item('/attachments.php', 'Attachments', '⌕', $active);
+    echo '<p class="nav-label">ACCOUNT</p>';
+    echo nav_item('/profile.php', 'Profile', '●', $active);
     echo '<div class="sidebar-foot"><span>IHPL // SECURE OPS</span><small>LINK ENCRYPTION: ACTIVE<br>NET: GUIDANCE / 01</small></div></aside><main class="content">';
 }
 

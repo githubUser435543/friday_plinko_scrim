@@ -217,7 +217,7 @@ Type=simple
 Restart=always
 RestartSec=5
 ExecStartPre=-/usr/bin/podman rm -f open-webui
-ExecStart=/usr/bin/podman run --name open-webui --log-driver=journald -p 80:8080 -v /var/lib/open-webui:/app/backend/data:Z -e WEBUI_NAME=PlinkAI -e WEBUI_AUTH=true -e ENABLE_SIGNUP=false -e DEFAULT_USER_ROLE=user -e ENABLE_OLLAMA_API=false -e ENABLE_OPENAI_API=true -e OPENAI_API_BASE_URL=http://host.containers.internal:11435/v1 -e OPENAI_API_BASE_URLS=http://host.containers.internal:11435/v1 -e OPENAI_API_KEY=ihpl-local-only -e OPENAI_API_KEYS=ihpl-local-only ghcr.io/open-webui/open-webui:${OPEN_WEBUI_VERSION}
+ExecStart=/usr/bin/podman run --name open-webui --log-driver=journald -p 80:8080 -v /var/lib/open-webui:/app/backend/data:Z -e WEBUI_NAME=PlinkAI -e WEBUI_AUTH=true -e ENABLE_SIGNUP=false -e DEFAULT_USER_ROLE=user -e ENABLE_OLLAMA_API=false -e ENABLE_OPENAI_API=true -e BYPASS_MODEL_ACCESS_CONTROL=true -e OPENAI_API_BASE_URL=http://host.containers.internal:11435/v1 -e OPENAI_API_BASE_URLS=http://host.containers.internal:11435/v1 -e OPENAI_API_KEY=ihpl-local-only -e OPENAI_API_KEYS=ihpl-local-only ghcr.io/open-webui/open-webui:${OPEN_WEBUI_VERSION}
 ExecStop=/usr/bin/podman stop -t 20 open-webui
 
 [Install]

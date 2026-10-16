@@ -16,7 +16,7 @@ Use `--skip-training-artifacts` for a clean service-only build. Re-running the c
 
 Public signup stays disabled while Open WebUI permits the installer to bootstrap the first administrator. The installer then authenticates as that administrator and creates or synchronizes the `jmoney` and unauthorized `support.bot` accounts through Open WebUI's authenticated user-management API. It verifies that both accounts appear in the administrator's user list and can sign in before setup continues. This also lets a rerun repair a previous run that stopped immediately after creating `plinktern@plinko.horse`.
 
-The installer also overwrites Open WebUI's persistent OpenAI-compatible connection with `http://host.containers.internal:11435/v1`, signs in as `jmoney`, confirms that `PlinkAI` appears through the browser-facing model API, and completes a test prompt. This happens after Open WebUI starts in its final configuration, so the verification covers the same service instance and endpoints used after setup exits.
+The installer also overwrites Open WebUI's persistent OpenAI-compatible connection with `http://host.containers.internal:11435/v1`. Open WebUI v0.11.3 hides unregistered provider models from ordinary users by default, so this single-model training host enables `BYPASS_MODEL_ACCESS_CONTROL` to expose PlinkAI to the scoring account. Setup signs in as `jmoney`, confirms that `PlinkAI` appears through the browser-facing model API, and completes a test prompt after Open WebUI starts in its final configuration.
 
 ## Verification
 

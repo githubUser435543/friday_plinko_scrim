@@ -128,6 +128,7 @@ rg -Fq '"/api/chat/completions"' ignition/setup.sh
 rg -Fq 'token=jmoney_token' ignition/setup.sh
 rg -Fq 'verified jmoney model visibility and PlinkAI completion: HTTP 200' ignition/setup.sh
 rg -Fq 'ENABLE_SIGNUP=false' ignition/setup.sh
+rg -Fq 'BYPASS_MODEL_ACCESS_CONTROL=true' ignition/setup.sh
 if rg -Fq "sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/'" ignition/setup.sh; then
   printf 'Ignition still restarts Open WebUI after configuring PlinkAI\n' >&2
   exit 1

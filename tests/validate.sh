@@ -110,12 +110,15 @@ rg -q 'JAVA_HOME=.*javaHome' assembly/Setup-Assembly.ps1
 rg -q 'SERVICE_USERNAME=LocalSystem' assembly/Setup-Assembly.ps1
 rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
-rg -Fq 'f"{base_url}{path}"' ignition/setup.sh
+rg -Fq 'f"{request_base_url}{path}"' ignition/setup.sh
 rg -Fq '"/auths/signin"' ignition/setup.sh
 rg -Fq '"/auths/add"' ignition/setup.sh
 rg -Fq 'f"/users/{user['"'"'id'"'"']}/update"' ignition/setup.sh
 rg -Fq 'verified login for {email}' ignition/setup.sh
 rg -Fq 'headers["Authorization"] = f"Bearer {token}"' ignition/setup.sh
+rg -Fq '"/openai/config/update"' ignition/setup.sh
+rg -Fq '"/openai/chat/completions"' ignition/setup.sh
+rg -Fq 'verified Open WebUI to PlinkAI completion: HTTP 200' ignition/setup.sh
 if rg -q "seed_user .*jmoney@plinko\.horse|seed_user .*support\.bot@plinko\.horse" ignition/setup.sh; then
   printf 'Ignition still seeds secondary Open WebUI accounts through public signup\n' >&2
   exit 1

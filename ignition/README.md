@@ -16,12 +16,15 @@ Use `--skip-training-artifacts` for a clean service-only build. Re-running the c
 
 The first Open WebUI signup becomes the administrator and automatically disables public signup. The installer then authenticates as that administrator and creates or synchronizes the `jmoney` and unauthorized `support.bot` accounts through Open WebUI's authenticated user-management API. It verifies that both accounts appear in the administrator's user list and can sign in before setup continues. This also lets a rerun repair a previous run that stopped immediately after creating `plinktern@plinko.horse`.
 
+The installer also overwrites Open WebUI's persistent OpenAI-compatible connection with `http://host.containers.internal:11435/v1`, loads the `PlinkAI` model through that connection, and completes a test prompt. This repairs persisted connection values that route model requests back to the Open WebUI frontend and return its HTML as a 500 error.
+
 ## Verification
 
 ```bash
 systemctl --no-pager status sshd plinkai-stub open-webui
 curl -fsS http://127.0.0.1:11435/v1/models
 curl -fsS http://127.0.0.1/health
+podman exec open-webui python3 -c "import urllib.request; print(urllib.request.urlopen('http://host.containers.internal:11435/v1/models').read().decode())"
 podman logs --tail 50 open-webui
 id jmoney
 id plinktern

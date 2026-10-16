@@ -246,16 +246,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-base_url = "http://127.0.0.1/api/v1"
+origin = "http://127.0.0.1"
+base_url = f"{origin}/api/v1"
 starter_password = sys.argv[1]
 
 
-def request_json(method, path, payload=None, token=None):
+def request_json(method, path, payload=None, token=None, request_base_url=base_url):
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
-        f"{base_url}{path}",
+        f"{request_base_url}{path}",
         data=None if payload is None else json.dumps(payload).encode(),
         headers=headers,
         method=method,
@@ -367,11 +368,67 @@ def upsert_user(name, email, password, role="user"):
 
 upsert_user("J-Money", "jmoney@plinko.horse", starter_password)
 upsert_user("Telemetry Support Bot", "support.bot@plinko.horse", "Orbit-Support-2026!")
+
+# Connection settings persist in Open WebUI's database and override container
+# environment variables on reruns. Force the PlinkAI endpoint into that state.
+plinkai_url = "http://host.containers.internal:11435/v1"
+status, result = request_json(
+    "POST",
+    "/openai/config/update",
+    {
+        "ENABLE_OPENAI_API": True,
+        "OPENAI_API_BASE_URLS": [plinkai_url],
+        "OPENAI_API_KEYS": ["ihpl-local-only"],
+        "OPENAI_API_CONFIGS": {},
+    },
+    token=admin_token,
+    request_base_url=origin,
+)
+if status != 200 or result.get("OPENAI_API_BASE_URLS") != [plinkai_url]:
+    raise RuntimeError(f"could not persist the PlinkAI connection: HTTP {status}: {str(result)[:500]}")
+
+status, result = request_json(
+    "GET",
+    "/openai/models",
+    token=admin_token,
+    request_base_url=origin,
+)
+models = result.get("data", []) if isinstance(result, dict) else []
+if status != 200 or not any(model.get("id") == "PlinkAI" for model in models):
+    raise RuntimeError(f"Open WebUI could not load PlinkAI: HTTP {status}: {str(result)[:500]}")
+
+status, result = request_json(
+    "POST",
+    "/openai/chat/completions",
+    {
+        "model": "PlinkAI",
+        "messages": [{"role": "user", "content": "PlinkAI readiness check"}],
+        "stream": False,
+    },
+    token=admin_token,
+    request_base_url=origin,
+)
+choices = result.get("choices", []) if isinstance(result, dict) else []
+if status != 200 or not choices:
+    raise RuntimeError(f"PlinkAI completion verification failed: HTTP {status}: {str(result)[:500]}")
+print("verified Open WebUI to PlinkAI completion: HTTP 200")
 PY
 
 sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/' /etc/systemd/system/open-webui.service
 systemctl daemon-reload
 systemctl restart open-webui.service
+
+for attempt in {1..60}; do
+  if curl --fail --silent http://127.0.0.1/health >/dev/null; then
+    break
+  fi
+  if [[ $attempt -eq 60 ]]; then
+    journalctl --no-pager -u open-webui.service -n 80
+    printf 'Open WebUI did not become ready after its final restart.\n' >&2
+    exit 1
+  fi
+  sleep 2
+done
 
 if [[ $INSTALL_TRAINING_ARTIFACTS -eq 1 ]]; then
   install_training_artifacts

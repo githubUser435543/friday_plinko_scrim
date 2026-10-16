@@ -4,7 +4,7 @@
 param(
     [Parameter()]
     [ValidatePattern('^[0-9a-fA-F:.]+$')]
-    [string]$ManifestIp = '172.16.1.40',
+    [string]$ManifestIp = '198.18.5.231',
 
     [Parameter()]
     [string]$StarterPassword = 'H00ves0nTheM00n',

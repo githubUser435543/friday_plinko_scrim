@@ -9,7 +9,7 @@ Open 64-bit Windows PowerShell as Administrator:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-Manifest.ps1 `
-  -ManifestIp 172.16.1.40 `
+  -ManifestIp 198.18.5.231 `
   -StarterPassword 'H00ves0nTheM00n'
 ```
 

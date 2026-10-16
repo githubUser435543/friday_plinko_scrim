@@ -116,6 +116,19 @@ rg -q 'JAVA_HOME=.*javaHome' assembly/Setup-Assembly.ps1
 rg -q 'SERVICE_USERNAME=LocalSystem' assembly/Setup-Assembly.ps1
 rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
+rg -Fq 'IGNITION_IP="198.18.6.107"' ignition/setup.sh
+rg -Fq "[string]\$AssemblyIp = '198.18.0.46'" assembly/Setup-Assembly.ps1
+rg -Fq "[string]\$ManifestIp = '198.18.5.231'" assembly/Setup-Assembly.ps1
+rg -Fq "[string]\$ManifestIp = '198.18.5.231'" manifest/Setup-Manifest.ps1
+rg -Fq '| `guidance` | `198.18.4.209` |' README.md
+if rg -q '172[.]16[.]1[.]' README.md assembly guidance ignition manifest; then
+  printf 'Packet IP addresses remain in deployment scripts or documentation\n' >&2
+  exit 1
+fi
+if rg -q 'Fedora( Server)? 38|fedora/linux/(releases|updates)/38|fedora-38-primary' README.md ignition; then
+  printf 'Ignition still contains Fedora 38 deployment values\n' >&2
+  exit 1
+fi
 rg -Fq 'f"{request_base_url}{path}"' ignition/setup.sh
 rg -Fq '"/auths/signin"' ignition/setup.sh
 rg -Fq '"/auths/add"' ignition/setup.sh

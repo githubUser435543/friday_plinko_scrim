@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-IGNITION_IP="172.16.1.20"
+IGNITION_IP="198.18.6.107"
 STARTER_PASSWORD="H00ves0nTheM00n"
 OPEN_WEBUI_VERSION="v0.11.3"
 INSTALL_TRAINING_ARTIFACTS=1
@@ -134,21 +134,21 @@ exec > >(tee -a /var/log/ihpl-setup/ignition.log) 2>&1
 
 DNF_ARGS=(-y)
 if ! dnf -q makecache; then
-  printf '[Ignition] Configured Fedora repositories are unavailable; using the signed Fedora 38 archive.\n'
+  printf '[Ignition] Configured Fedora repositories are unavailable; using the signed Fedora 39 archive.\n'
   cat > /etc/yum.repos.d/ihpl-fedora-archive.repo <<'EOF'
 [ihpl-fedora-archive]
-name=Fedora 38 archive - Everything
-baseurl=https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/38/Everything/$basearch/os/
+name=Fedora 39 archive - Everything
+baseurl=https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/39/Everything/$basearch/os/
 enabled=1
 gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-38-primary
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-39-primary
 
 [ihpl-fedora-updates-archive]
-name=Fedora 38 archive - Updates
-baseurl=https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/38/Everything/$basearch/
+name=Fedora 39 archive - Updates
+baseurl=https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/39/Everything/$basearch/
 enabled=1
 gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-38-primary
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-39-primary
 EOF
   DNF_ARGS+=(--disablerepo=* --enablerepo=ihpl-fedora-archive --enablerepo=ihpl-fedora-updates-archive)
 fi

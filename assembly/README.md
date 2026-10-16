@@ -12,8 +12,8 @@ Open 64-bit Windows PowerShell as Administrator:
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-Assembly.ps1 `
-  -AssemblyIp 172.16.1.30 `
-  -ManifestIp 172.16.1.40 `
+  -AssemblyIp 198.18.0.46 `
+  -ManifestIp 198.18.5.231 `
   -StarterPassword 'H00ves0nTheM00n'
 ```
 

@@ -1,14 +1,14 @@
 # Ignition — Open WebUI and PlinkAI
 
-Ignition is a Fedora Server 38 host running OpenSSH and Open WebUI v0.11.3 in Podman. A tiny local OpenAI-compatible service exposes the `PlinkAI` model so the exercise does not need an external API key or Ollama host.
+Ignition is a Fedora Server 39 host running OpenSSH and Open WebUI v0.11.3 in Podman. A tiny local OpenAI-compatible service exposes the `PlinkAI` model so the exercise does not need an external API key or Ollama host.
 
-Fedora 38 is end-of-life. The installer first uses configured repositories and, if their metadata is unavailable, switches package installation to Fedora's signed archive repositories. It leaves GPG verification enabled.
+Fedora 39 is end-of-life. The installer first uses configured repositories and, if their metadata is unavailable, switches package installation to Fedora's signed archive repositories. It leaves GPG verification enabled.
 
 ## Install
 
 ```bash
 sudo ./setup.sh \
-  --ignition-ip 172.16.1.20 \
+  --ignition-ip 198.18.6.107 \
   --password 'H00ves0nTheM00n'
 ```
 

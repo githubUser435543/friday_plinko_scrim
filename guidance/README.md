@@ -10,7 +10,7 @@ Use MariaDB on Manifest:
 
 ```bash
 sudo ./setup.sh \
-  --manifest-ip 172.16.1.40 \
+  --manifest-ip 198.18.5.231 \
   --password 'H00ves0nTheM00n'
 ```
 
@@ -42,7 +42,7 @@ systemctl --no-pager status mariadb
 curl -fsS http://127.0.0.1/api/status.php
 id jmoney
 id plinktern
-MANIFEST_IP=172.16.1.40
+MANIFEST_IP=198.18.5.231
 mysql -h "$MANIFEST_IP" -u jmoney -p -e 'SELECT status FROM plinkcom.rockets;'
 # For --local-mariadb, use: mysql -h 127.0.0.1 -u jmoney -p
 ```

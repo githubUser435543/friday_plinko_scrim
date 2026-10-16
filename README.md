@@ -4,12 +4,12 @@ This repository builds a four-host, self-contained blue-team practice range insp
 
 ## Topology
 
-| Host | Reference OS | Critical services |
-| --- | --- | --- |
-| `guidance` | Ubuntu 22.04 | SSH, PlinkCom (Apache/PHP) |
-| `ignition` | Fedora Server 38 | SSH, Open WebUI v0.11.3 |
-| `assembly` | Windows Server 2022 | RDP, Jenkins |
-| `manifest` | Windows Server 2019 | RDP, MariaDB |
+| Host | Address | Reference OS | Critical services |
+| --- | --- | --- | --- |
+| `guidance` | `198.18.4.209` | Ubuntu 22.04 | SSH, PlinkCom (Apache/PHP) |
+| `ignition` | `198.18.6.107` | Fedora Server 39 | SSH, Open WebUI v0.11.3 |
+| `assembly` | `198.18.0.46` | Windows Server 2022 | RDP, Jenkins |
+| `manifest` | `198.18.5.231` | Windows Server 2019 | RDP, MariaDB |
 
 Change the addresses through each setup script's parameters. The scripts do not configure a static interface because interface names and gateways vary by hypervisor.
 

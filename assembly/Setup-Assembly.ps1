@@ -41,8 +41,16 @@ function Get-IhplLocalUser {
     param([Parameter(Mandatory)][string]$Name)
 
     $netExe = Join-Path $env:SystemRoot 'System32\net.exe'
-    $null = & $netExe user $Name 2>&1
-    if ($LASTEXITCODE -ne 0) { return $null }
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'SilentlyContinue'
+        & $netExe user $Name *> $null
+        $userExists = ($LASTEXITCODE -eq 0)
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if (-not $userExists) { return $null }
 
     $entry = [ADSI]("WinNT://{0}/{1},user" -f $env:COMPUTERNAME, $Name)
     $entry.RefreshCache()

@@ -150,6 +150,8 @@ fi
 
 rg -q '& \$netExe user \$Name' assembly/Setup-Assembly.ps1
 rg -q '& \$netExe user \$Name' manifest/Setup-Manifest.ps1
+rg -q '& \$netExe user \$Name \*> \$null' assembly/Setup-Assembly.ps1
+rg -q '& \$netExe user \$Name \*> \$null' manifest/Setup-Manifest.ps1
 rg -q 'Assert-IhplScoredAccounts' assembly/Setup-Assembly.ps1
 rg -q 'Assert-IhplScoredAccounts' manifest/Setup-Manifest.ps1
 rg -q 'jmoney is not a member of Remote Desktop Users' assembly/Setup-Assembly.ps1

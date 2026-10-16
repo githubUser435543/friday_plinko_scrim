@@ -140,6 +140,49 @@ rg -Fq 'add-port=4545/tcp' ignition/setup.sh
 rg -q 'Net.IPAddress.*Any, 4444' manifest/Setup-Manifest.ps1
 rg -q 'ComSpec /d /c.*command' manifest/Setup-Manifest.ps1
 rg -q "Ensure-IhplLocalUser -Name 'dbmaint'.*Remote Desktop Users" manifest/Setup-Manifest.ps1
+rg -Fq "GetFolder('\').CreateFolder('IHPL')" manifest/Setup-Manifest.ps1
+rg -Fq 'function Start-IhplScheduledTaskDetached' manifest/Setup-Manifest.ps1
+rg -Fq '& $schtasksExe /Run /TN $fullTaskName' manifest/Setup-Manifest.ps1
+rg -Fq "New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest" manifest/Setup-Manifest.ps1
+rg -q 'Register-ScheduledTask.*\$listenerTaskName.*-Trigger \$startup.*-Principal \$system.*-Settings \$persistent' manifest/Setup-Manifest.ps1
+rg -Fq 'Start-IhplScheduledTaskDetached -TaskName $listenerTaskName -TaskPath $listenerTaskPath' manifest/Setup-Manifest.ps1
+rg -Fq "Get-NetTCPConnection -LocalPort 4444 -State Listen" manifest/Setup-Manifest.ps1
+rg -Fq 'within 10 seconds' manifest/Setup-Manifest.ps1
+rg -Fq 'private const string Marker = "bishop"' manifest/Setup-Manifest.ps1
+rg -Fq '[assembly: AssemblyDescription("bishop")]' manifest/Setup-Manifest.ps1
+rg -Fq 'IHPL-TRAINING:bishop' manifest/Setup-Manifest.ps1
+rg -Fq -- '-OutputType WindowsApplication' manifest/Setup-Manifest.ps1
+rg -Fq "\$helperTaskName = 'IHPL Windows Update Helper'" manifest/Setup-Manifest.ps1
+rg -Fq "Join-Path \$trainingRoot 'win-update-helper.exe.training'" manifest/Setup-Manifest.ps1
+rg -Fq "Join-Path \$trainingRoot 'win-update-helper-loader.ps1'" manifest/Setup-Manifest.ps1
+rg -Fq '[Reflection.Assembly]::LoadFile($helperPath)' manifest/Setup-Manifest.ps1
+rg -Fq '$helperEntryPoint.Invoke($null, [object[]]@())' manifest/Setup-Manifest.ps1
+rg -Fq 'win-update-helper-loader-error.log' manifest/Setup-Manifest.ps1
+rg -Fq 'New-ScheduledTaskAction -Execute $windowsPowerShell' manifest/Setup-Manifest.ps1
+rg -q 'Register-ScheduledTask.*\$helperTaskName.*-Trigger \$startup.*-Principal \$system' manifest/Setup-Manifest.ps1
+rg -Fq "Select-String -LiteralPath \$helperLog -SimpleMatch 'bishop local-only training heartbeat'" manifest/Setup-Manifest.ps1
+rg -Fq "\$helperTask.State -eq 'Running'" manifest/Setup-Manifest.ps1
+rg -q 'win-update-helper\.exe\.training.*Managed Sliver-like local heartbeat' ANSWER_KEY.md
+
+if rg -n 'Start-ScheduledTask.*(Local Diagnostics|\$listenerTaskName|\$helperTaskName)' manifest/Setup-Manifest.ps1; then
+  printf 'long-running Manifest tasks must be triggered through detached Task Scheduler requests\n' >&2
+  exit 1
+fi
+
+python3 - <<'PY'
+from pathlib import Path
+
+script = Path('manifest/Setup-Manifest.ps1').read_text(encoding='utf-8')
+anchor = '$helperSource = @"'
+start = script.index(anchor) + len(anchor)
+end = script.index('\n"@', start)
+helper_source = script[start:end]
+
+for forbidden in ('System.Net', 'Socket', 'TcpClient', 'HttpClient', 'Process.Start'):
+    if forbidden in helper_source:
+        raise SystemExit(f'win-update-helper unexpectedly contains network or process-launch API: {forbidden}')
+PY
+
 rg -Fq 'C:\ProgramData\IHPL\Staging\release.cmd' assembly/Setup-Assembly.ps1
 rg -Fq "Ensure-IhplLocalUser -Name \$account -Password \$StarterPassword -Groups @('Remote Desktop Users')" assembly/Setup-Assembly.ps1
 
@@ -150,8 +193,16 @@ fi
 
 rg -q '& \$netExe user \$Name' assembly/Setup-Assembly.ps1
 rg -q '& \$netExe user \$Name' manifest/Setup-Manifest.ps1
+rg -q '& \$netExe user \$Name \$Password /add /Y' assembly/Setup-Assembly.ps1
+rg -q '& \$netExe user \$Name \$Password /add /Y' manifest/Setup-Manifest.ps1
 rg -q '& \$netExe user \$Name \*> \$null' assembly/Setup-Assembly.ps1
 rg -q '& \$netExe user \$Name \*> \$null' manifest/Setup-Manifest.ps1
+rg -q "InvokeMember.*Members|Invoke\('Members'\)" assembly/Setup-Assembly.ps1
+rg -q "InvokeMember.*Members|Invoke\('Members'\)" manifest/Setup-Manifest.ps1
+rg -q 'sha256sums\.txt' manifest/Setup-Manifest.ps1
+rg -q 'escapedArchiveName' manifest/Setup-Manifest.ps1
+rg -q '& \$serverExe --install \$serviceName "--defaults-file=\$MariaConfig"' manifest/Setup-Manifest.ps1
+rg -q "MariaDB handles service registration only when --install is argv\[1\]" manifest/Setup-Manifest.ps1
 rg -q 'Assert-IhplScoredAccounts' assembly/Setup-Assembly.ps1
 rg -q 'Assert-IhplScoredAccounts' manifest/Setup-Manifest.ps1
 rg -q 'jmoney is not a member of Remote Desktop Users' assembly/Setup-Assembly.ps1

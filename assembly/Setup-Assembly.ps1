@@ -81,7 +81,20 @@ function Test-IhplLocalGroupMember {
 
     $groupEntry = [ADSI]("WinNT://{0}/{1},group" -f $env:COMPUTERNAME, $Group)
     $null = $groupEntry.psbase.NativeObject
-    return [bool]$groupEntry.psbase.Invoke('IsMember', @([string]$User.Path))
+    $userName = [string]$User.Properties['Name'].Value
+    foreach ($member in @($groupEntry.psbase.Invoke('Members'))) {
+        $memberName = [string]$member.GetType().InvokeMember(
+            'Name',
+            [System.Reflection.BindingFlags]::GetProperty,
+            $null,
+            $member,
+            $null
+        )
+        if ($memberName.Equals($userName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Ensure-IhplLocalUser {
@@ -97,7 +110,8 @@ function Ensure-IhplLocalUser {
     $netExe = Join-Path $env:SystemRoot 'System32\net.exe'
     $user = Get-IhplLocalUser -Name $Name
     if ($null -eq $user) {
-        $netOutput = & $netExe user $Name $Password /add 2>&1
+        # /Y accepts net.exe's legacy confirmation for passwords longer than 14 characters.
+        $netOutput = & $netExe user $Name $Password /add /Y 2>&1
     }
     else {
         $netOutput = & $netExe user $Name $Password 2>&1

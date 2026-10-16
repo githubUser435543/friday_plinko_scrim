@@ -54,7 +54,10 @@ class Handler(BaseHTTPRequestHandler):
                 chunk = {"id": "plinkai-local", "object": "chat.completion.chunk", "created": created, "model": MODEL, "choices": [{"index": 0, "delta": {"content": word + " "}, "finish_reason": None}]}
                 self.wfile.write(("data: " + json.dumps(chunk) + "\n\n").encode())
                 self.wfile.flush()
+            final_chunk = {"id": "plinkai-local", "object": "chat.completion.chunk", "created": created, "model": MODEL, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+            self.wfile.write(("data: " + json.dumps(final_chunk) + "\n\n").encode())
             self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
             return
 
         self.send_json(200, {

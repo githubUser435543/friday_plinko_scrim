@@ -274,6 +274,23 @@ def request_json(method, path, payload=None, token=None, request_base_url=base_u
         return error.code, response_body
 
 
+def request_text(method, path, payload=None, token=None, request_base_url=base_url):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        f"{request_base_url}{path}",
+        data=None if payload is None else json.dumps(payload).encode(),
+        headers=headers,
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, response.read().decode(errors="replace")
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode(errors="replace")
+
+
 admin = {
     "name": "Plinktern Administrator",
     "email": "plinktern@plinko.horse",
@@ -389,6 +406,52 @@ status, result = request_json(
 if status != 200 or result.get("OPENAI_API_BASE_URLS") != [plinkai_url]:
     raise RuntimeError(f"could not persist the PlinkAI connection: HTTP {status}: {str(result)[:500]}")
 
+# Seed both the global browser default and jmoney's saved selection. Without
+# these values, a fresh chat can submit an empty model before the selector has
+# initialized, leaving that chat stuck behind Open WebUI's previous-error guard.
+status, result = request_json(
+    "POST",
+    "/configs/models",
+    {
+        "DEFAULT_MODELS": "PlinkAI",
+        "DEFAULT_PINNED_MODELS": "PlinkAI",
+        "MODEL_ORDER_LIST": ["PlinkAI"],
+        "DEFAULT_MODEL_METADATA": {},
+        "DEFAULT_MODEL_PARAMS": {},
+    },
+    token=admin_token,
+)
+if status != 200 or result.get("DEFAULT_MODELS") != "PlinkAI":
+    raise RuntimeError(f"could not set PlinkAI as the default model: HTTP {status}: {str(result)[:500]}")
+
+status, result = request_json(
+    "POST",
+    "/users/user/settings/update",
+    {"models": ["PlinkAI"]},
+    token=jmoney_token,
+)
+if status != 200 or result.get("models") != ["PlinkAI"]:
+    raise RuntimeError(f"could not save jmoney's PlinkAI selection: HTTP {status}: {str(result)[:500]}")
+
+# Background title and tag generation must use the same available model.
+status, task_config = request_json("GET", "/tasks/config", token=admin_token)
+if status != 200 or not isinstance(task_config, dict):
+    raise RuntimeError(f"could not read Open WebUI task settings: HTTP {status}: {str(task_config)[:500]}")
+task_config["TASK_MODEL"] = "PlinkAI"
+task_config["TASK_MODEL_EXTERNAL"] = "PlinkAI"
+status, result = request_json(
+    "POST",
+    "/tasks/config/update",
+    task_config,
+    token=admin_token,
+)
+if status != 200 or result.get("TASK_MODEL_EXTERNAL") != "PlinkAI":
+    raise RuntimeError(f"could not set the PlinkAI task model: HTTP {status}: {str(result)[:500]}")
+
+status, result = request_json("GET", "/api/config", token=jmoney_token, request_base_url=origin)
+if status != 200 or result.get("default_models") != "PlinkAI":
+    raise RuntimeError(f"jmoney did not receive the PlinkAI browser default: HTTP {status}: {str(result)[:500]}")
+
 status, result = request_json(
     "GET",
     "/api/models",
@@ -413,7 +476,36 @@ status, result = request_json(
 choices = result.get("choices", []) if isinstance(result, dict) else []
 if status != 200 or not choices:
     raise RuntimeError(f"jmoney PlinkAI completion verification failed: HTTP {status}: {str(result)[:500]}")
-print("verified jmoney model visibility and PlinkAI completion: HTTP 200")
+
+status, stream_body = request_text(
+    "POST",
+    "/api/chat/completions",
+    {
+        "model": "PlinkAI",
+        "messages": [{"role": "user", "content": "PlinkAI streaming readiness check"}],
+        "stream": True,
+    },
+    token=jmoney_token,
+    request_base_url=origin,
+)
+stream_events = []
+for line in stream_body.splitlines():
+    if not line.startswith("data: ") or line == "data: [DONE]":
+        continue
+    try:
+        stream_events.append(json.loads(line[6:]))
+    except json.JSONDecodeError:
+        pass
+stream_finished = any(
+    choice.get("finish_reason") == "stop"
+    for event in stream_events
+    if isinstance(event, dict)
+    for choice in event.get("choices", [])
+    if isinstance(choice, dict)
+)
+if status != 200 or "data: [DONE]" not in stream_body or not stream_finished:
+    raise RuntimeError(f"jmoney PlinkAI streaming verification failed: HTTP {status}: {stream_body[:500]}")
+print("verified jmoney default model and PlinkAI chat completion: HTTP 200")
 PY
 
 if [[ $INSTALL_TRAINING_ARTIFACTS -eq 1 ]]; then

@@ -138,8 +138,14 @@ rg -Fq 'headers["Authorization"] = f"Bearer {token}"' ignition/setup.sh
 rg -Fq '"/openai/config/update"' ignition/setup.sh
 rg -Fq '"/api/models"' ignition/setup.sh
 rg -Fq '"/api/chat/completions"' ignition/setup.sh
+rg -Fq '"/configs/models"' ignition/setup.sh
+rg -Fq '"/users/user/settings/update"' ignition/setup.sh
+rg -Fq '"/tasks/config/update"' ignition/setup.sh
+rg -Fq '"DEFAULT_MODELS": "PlinkAI"' ignition/setup.sh
+rg -Fq '"TASK_MODEL_EXTERNAL"] = "PlinkAI"' ignition/setup.sh
+rg -Fq '"stream": True' ignition/setup.sh
 rg -Fq 'token=jmoney_token' ignition/setup.sh
-rg -Fq 'verified jmoney model visibility and PlinkAI completion: HTTP 200' ignition/setup.sh
+rg -Fq 'verified jmoney default model and PlinkAI chat completion: HTTP 200' ignition/setup.sh
 rg -Fq 'ENABLE_SIGNUP=false' ignition/setup.sh
 rg -Fq 'BYPASS_MODEL_ACCESS_CONTROL=true' ignition/setup.sh
 if rg -Fq "sed -i 's/-e ENABLE_SIGNUP=true/-e ENABLE_SIGNUP=false/'" ignition/setup.sh; then

@@ -107,10 +107,10 @@ rg -q 'SERVICE_USERNAME=LocalSystem' assembly/Setup-Assembly.ps1
 rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -q "callsign.*EQUUS I|EQUUS I" manifest/schema.sql
-rg -q 'RemoteAddress.*GuidanceIp.*AssemblyIp' manifest/Setup-Manifest.ps1
-rg -q '\[Parameter\(Mandatory = \$true\)\][[:space:]]*$' manifest/Setup-Manifest.ps1
-if rg -q '\[string\]\$GuidanceIp[[:space:]]*=' manifest/Setup-Manifest.ps1; then
-  printf 'Manifest GuidanceIp must not have a silent default\n' >&2
+rg -Fq "CREATE USER IF NOT EXISTS 'jmoney'@'%'" manifest/Setup-Manifest.ps1
+rg -q "RemoteAddress Any.*LocalPort 3306|LocalPort 3306.*RemoteAddress Any" manifest/Setup-Manifest.ps1
+if rg -q '\$(GuidanceIp|AssemblyIp)' manifest/Setup-Manifest.ps1; then
+  printf 'Manifest still requests source addresses while MariaDB accepts all sources\n' >&2
   exit 1
 fi
 rg -q 'grep --no-messages bishop' ANSWER_KEY.md

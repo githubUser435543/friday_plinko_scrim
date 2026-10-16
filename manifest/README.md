@@ -10,14 +10,12 @@ Open 64-bit Windows PowerShell as Administrator:
 Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-Manifest.ps1 `
   -ManifestIp 172.16.1.40 `
-  -GuidanceIp 198.18.4.209 `
-  -AssemblyIp 172.16.1.30 `
   -StarterPassword 'H00ves0nTheM00n'
 ```
 
-Use `-SkipTrainingArtifacts` for a clean service-only build. The installer downloads the official MariaDB archive and its published SHA-256 file, verifies the archive, initializes the database, seeds PlinkCom, enables RDP, and restricts inbound TCP 3306 to Guidance and Assembly.
+Use `-SkipTrainingArtifacts` for a clean service-only build. The installer downloads the official MariaDB archive and its published SHA-256 file, verifies the archive, initializes the database, seeds PlinkCom, enables RDP, and opens inbound TCP 3306 from all source addresses.
 
-`-GuidanceIp` is required and must be the source address MariaDB sees for the Guidance host. The installer creates `jmoney` with that exact MariaDB host grant and uses the same address in the Windows firewall rule. If MariaDB reports `Host '198.18.4.209' is not allowed to connect`, rerun the installer with `-GuidanceIp 198.18.4.209`.
+The MariaDB account `jmoney` uses the host pattern `%`, so PlinkCom and scoring clients can authenticate from any IP address with the correct password.
 
 Local accounts are created and password-managed with Windows' built-in `net.exe`, then configured and verified through WinNT/ADSI. The installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
 
@@ -48,6 +46,6 @@ Use `plinktern` for database administration and `jmoney` for scoring checks. Bot
 
 ## Firewall scope
 
-`IHPL MariaDB 3306` permits only the configured Guidance and Assembly addresses. Guidance needs database access for PlinkCom, and Assembly needs it for the backup job. Add a separate, narrowly scoped rule if the scoring engine connects directly.
+`IHPL MariaDB 3306` permits TCP 3306 from any remote address. MariaDB still requires a valid database username and password.
 
 Logs and setup files are under `C:\ProgramData\IHPL`. MariaDB data is under `C:\ProgramData\MariaDB\data`.

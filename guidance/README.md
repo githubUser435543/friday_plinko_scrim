@@ -31,7 +31,7 @@ Supported options:
 
 Exactly one of `--manifest-ip` or `--local-mariadb` is required. The script is idempotent. It does not assign an interface address or enable UFW globally. If UFW is already active, it adds SSH/HTTP ingress and, in remote mode, narrowly scoped MariaDB egress without changing the default policy.
 
-When using Manifest, pass Guidance's actual source address to `Setup-Manifest.ps1 -GuidanceIp`. Manifest uses that value for both the MariaDB `jmoney` host grant and its inbound firewall rule.
+When using Manifest, its installer creates the remote `jmoney` account with the MariaDB host pattern `%` and opens TCP 3306 from any source address.
 
 ## Verification
 

@@ -6,14 +6,6 @@ param(
     [ValidatePattern('^[0-9a-fA-F:.]+$')]
     [string]$ManifestIp = '172.16.1.40',
 
-    [Parameter(Mandatory = $true)]
-    [ValidatePattern('^[0-9a-fA-F:.]+$')]
-    [string]$GuidanceIp,
-
-    [Parameter()]
-    [ValidatePattern('^[0-9a-fA-F:.]+$')]
-    [string]$AssemblyIp = '172.16.1.30',
-
     [Parameter()]
     [string]$StarterPassword = 'H00ves0nTheM00n',
 
@@ -605,11 +597,11 @@ log-error=$($LogRoot.Replace('\','/'))/mariadb-error.log
     $schemaSql = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'schema.sql') -Raw
     $accountSql = @"
 
-CREATE USER IF NOT EXISTS 'jmoney'@'$GuidanceIp' IDENTIFIED BY '$StarterPassword';
-ALTER USER 'jmoney'@'$GuidanceIp' IDENTIFIED BY '$StarterPassword';
-GRANT SELECT ON plinkcom.* TO 'jmoney'@'$GuidanceIp';
-GRANT UPDATE ON plinkcom.users TO 'jmoney'@'$GuidanceIp';
-GRANT UPDATE ON plinkcom.rockets TO 'jmoney'@'$GuidanceIp';
+CREATE USER IF NOT EXISTS 'jmoney'@'%' IDENTIFIED BY '$StarterPassword';
+ALTER USER 'jmoney'@'%' IDENTIFIED BY '$StarterPassword';
+GRANT SELECT ON plinkcom.* TO 'jmoney'@'%';
+GRANT UPDATE ON plinkcom.users TO 'jmoney'@'%';
+GRANT UPDATE ON plinkcom.rockets TO 'jmoney'@'%';
 CREATE USER IF NOT EXISTS 'jmoney'@'localhost' IDENTIFIED BY '$StarterPassword';
 ALTER USER 'jmoney'@'localhost' IDENTIFIED BY '$StarterPassword';
 GRANT SELECT ON plinkcom.* TO 'jmoney'@'localhost';
@@ -643,7 +635,7 @@ port=3306
     Remove-Item -LiteralPath $SeedSqlPath, $ClientDefaults -Force
 
     Remove-NetFirewallRule -DisplayName 'IHPL MariaDB 3306' -ErrorAction SilentlyContinue
-    New-NetFirewallRule -DisplayName 'IHPL MariaDB 3306' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3306 -RemoteAddress @($GuidanceIp, $AssemblyIp) -Profile Any | Out-Null
+    New-NetFirewallRule -DisplayName 'IHPL MariaDB 3306' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3306 -RemoteAddress Any -Profile Any | Out-Null
 
     if (-not $SkipTrainingArtifacts) {
         Write-Host '[Manifest] Planting incident-response findings...'

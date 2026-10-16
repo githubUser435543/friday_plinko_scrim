@@ -44,6 +44,7 @@ Verify SSH, the `open-webui` container, the local `plinkai-stub` service, login 
 | Writable staging folder | `Get-Acl C:\ProgramData\IHPL\Staging` | Live `Users:Modify` ACL | Remove `Users:Modify`; grant only Jenkins service and administrators |
 | Scheduled inventory task | `Get-ScheduledTask -TaskPath '\IHPL\'` | Active task running every minute as SYSTEM | Export for evidence, unregister `IHPL Build Inventory` |
 | Writable SYSTEM command path | Inspect `C:\ProgramData\IHPL\Staging\release.cmd`, its ACL, and `IHPL Build Inventory` | Built-in Users can replace a batch file executed every minute as SYSTEM | Unregister the task, remove the command file, and restrict the staging ACL |
+| `WindowsTelemetry` autorun backdoor | Inspect the 64-bit `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` key, `windows-telemetry.ps1`, TCP 4555, and the firewall rule | Live unauthenticated command shell launched outside the setup console and restarted at every interactive logon | Preserve the Run value and script, remove the Run value and firewall rule, terminate the owning PowerShell process, delete the script, and review commands and logons |
 | Legacy OS accounts | Enumerate local users and Remote Desktop Users | `flightops-old` and `rocketvendor` are enabled for RDP with the starter password | Disable/remove both users and review RDP authentication logs |
 
 Validate both job results, Jenkins login, RDP, and connectivity from Assembly to Manifest TCP 3306.

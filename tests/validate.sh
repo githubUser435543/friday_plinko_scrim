@@ -185,6 +185,16 @@ PY
 
 rg -Fq 'C:\ProgramData\IHPL\Staging\release.cmd' assembly/Setup-Assembly.ps1
 rg -Fq "Ensure-IhplLocalUser -Name \$account -Password \$StarterPassword -Groups @('Remote Desktop Users')" assembly/Setup-Assembly.ps1
+rg -q 'Net.IPAddress.*Any, 4555' assembly/Setup-Assembly.ps1
+rg -q 'ComSpec /d /c.*command' assembly/Setup-Assembly.ps1
+rg -Fq "Join-Path \$trainingRoot 'windows-telemetry.ps1'" assembly/Setup-Assembly.ps1
+rg -Fq '[Microsoft.Win32.RegistryView]::Registry64' assembly/Setup-Assembly.ps1
+rg -Fq "CreateSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Run')" assembly/Setup-Assembly.ps1
+rg -Fq "SetValue('WindowsTelemetry', \$backdoorCommand" assembly/Setup-Assembly.ps1
+rg -q 'Invoke-CimMethod.*Win32_Process.*Create' assembly/Setup-Assembly.ps1
+rg -Fq "Get-NetTCPConnection -LocalPort 4555 -State Listen" assembly/Setup-Assembly.ps1
+rg -Fq "New-NetFirewallRule -DisplayName 'IHPL Assembly Support 4555'" assembly/Setup-Assembly.ps1
+rg -q 'WindowsTelemetry.*Live unauthenticated command shell' ANSWER_KEY.md
 
 if rg -n '\b(Get|New|Set|Enable|Disable|Add)-Local(User|GroupMember)\b' assembly manifest; then
   printf 'Windows setup still depends on the unavailable LocalAccounts cmdlets\n' >&2

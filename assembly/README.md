@@ -21,7 +21,7 @@ Use `-SkipTrainingArtifacts` for a clean service-only build. The script enables 
 
 Local accounts are created and password-managed with Windows' built-in `net.exe`, then configured and verified through WinNT/ADSI. The installer does not depend on the `Microsoft.PowerShell.LocalAccounts` module and works from either 32-bit or 64-bit Windows PowerShell.
 
-The findings include unauthorized Jenkins users, anonymous read access, enabled legacy RDP users, and a Users-writable batch file executed every minute as SYSTEM. The Jenkins Windows service also runs as LocalSystem, so authenticated Jenkins administrators have operating-system command execution through job configuration.
+The findings include unauthorized Jenkins users, anonymous read access, enabled legacy RDP users, a Users-writable batch file executed every minute as SYSTEM, and a live TCP command backdoor on port 4555. The backdoor starts outside the setup console and persists at interactive logon through the 64-bit machine-wide `WindowsTelemetry` Run value. The Jenkins Windows service also runs as LocalSystem, so authenticated Jenkins administrators have operating-system command execution through job configuration.
 
 ## Verification
 
@@ -33,6 +33,9 @@ net.exe localgroup Administrators
 Test-NetConnection -ComputerName localhost -Port 8080
 Invoke-WebRequest -UseBasicParsing http://localhost:8080/login
 Get-NetFirewallRule -DisplayName 'IHPL Jenkins 8080'
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name WindowsTelemetry
+Get-NetTCPConnection -LocalPort 4555 -State Listen
+Get-NetFirewallRule -DisplayName 'IHPL Assembly Support 4555'
 ```
 
 Browse to Assembly on TCP 8080 and sign in as `plinktern` for administration or `jmoney` for scoring. Both accounts initially use `H00ves0nTheM00n`. On first startup, allow up to two minutes for Jenkins to initialize the security realm and jobs.

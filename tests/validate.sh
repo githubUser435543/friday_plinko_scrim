@@ -117,6 +117,10 @@ rg -q 'SERVICE_USERNAME=LocalSystem' assembly/Setup-Assembly.ps1
 rg -Fq "Join-Path \$LogRoot 'jenkins-msi.log'" assembly/Setup-Assembly.ps1
 rg -q 'Open WebUI v0.11.3' ignition/README.md
 rg -Fq 'IGNITION_IP="198.18.6.107"' ignition/setup.sh
+rg -Fq '/etc/ssh/sshd_config.d/00-ihpl-password-auth.conf' ignition/setup.sh
+rg -Fq 'PasswordAuthentication yes' ignition/setup.sh
+rg -Fq 'KbdInteractiveAuthentication yes' ignition/setup.sh
+rg -Fq 'sshd -T -C user=plinktern,host=localhost,addr=127.0.0.1' ignition/setup.sh
 rg -Fq "[string]\$AssemblyIp = '198.18.0.46'" assembly/Setup-Assembly.ps1
 rg -Fq "[string]\$ManifestIp = '198.18.5.231'" assembly/Setup-Assembly.ps1
 rg -Fq "[string]\$ManifestIp = '198.18.5.231'" manifest/Setup-Manifest.ps1

@@ -12,7 +12,7 @@ sudo ./setup.sh \
   --password 'H00ves0nTheM00n'
 ```
 
-Use `--skip-training-artifacts` for a clean service-only build. Re-running the command refreshes the container and configuration without deleting `/var/lib/open-webui`.
+Use `--skip-training-artifacts` for a clean service-only build. Re-running the command refreshes the container and configuration without deleting `/var/lib/open-webui`. The installer places `00-ihpl-password-auth.conf` ahead of Fedora cloud-init's SSH drop-in, enables password and PAM authentication, validates the effective configuration for `plinktern`, and restarts `sshd`.
 
 Public signup stays disabled while Open WebUI permits the installer to bootstrap the first administrator. The installer then authenticates as that administrator and creates or synchronizes the `jmoney` and unauthorized `support.bot` accounts through Open WebUI's authenticated user-management API. It verifies that both accounts appear in the administrator's user list and can sign in before setup continues. This also lets a rerun repair a previous run that stopped immediately after creating `plinktern@plinko.horse`.
 
@@ -22,12 +22,19 @@ The installer also overwrites Open WebUI's persistent OpenAI-compatible connecti
 
 ```bash
 systemctl --no-pager status sshd plinkai-stub open-webui
+sshd -T -C user=plinktern,host=localhost,addr=127.0.0.1 | grep -E '^(passwordauthentication|kbdinteractiveauthentication|usepam) '
 curl -fsS http://127.0.0.1:11435/v1/models
 curl -fsS http://127.0.0.1/health
 podman exec open-webui python3 -c "import urllib.request; print(urllib.request.urlopen('http://host.containers.internal:11435/v1/models').read().decode())"
 podman logs --tail 50 open-webui
 id jmoney
 id plinktern
+```
+
+From another host, force a password-only test so a cached public key cannot mask the result:
+
+```bash
+ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password plinktern@198.18.6.107
 ```
 
 Browse to Ignition and sign in as `plinktern@plinko.horse` for administration or `jmoney@plinko.horse` for scoring. The matching OS accounts also exist with the same starter password; `plinktern` belongs to `wheel` and `jmoney` does not.

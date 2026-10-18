@@ -173,7 +173,32 @@ if [[ " $(id -nG plinktern) " != *' wheel '* ]]; then
   printf 'plinktern was not added to the wheel group.\n' >&2
   exit 1
 fi
+
+# Fedora cloud images commonly disable password authentication in a
+# 50-cloud-init.conf drop-in. OpenSSH uses the first value it encounters, so
+# install an earlier file instead of editing a cloud-managed configuration.
+install -d -m 0755 /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-ihpl-password-auth.conf <<'EOF'
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+UsePAM yes
+EOF
+chmod 0644 /etc/ssh/sshd_config.d/00-ihpl-password-auth.conf
+sshd -t
 systemctl enable --now sshd firewalld
+systemctl restart sshd
+
+effective_sshd_config="$(sshd -T -C user=plinktern,host=localhost,addr=127.0.0.1)"
+for required_setting in \
+  'passwordauthentication yes' \
+  'kbdinteractiveauthentication yes' \
+  'usepam yes'; do
+  if ! grep -Fqx "$required_setting" <<<"$effective_sshd_config"; then
+    printf 'Effective SSH configuration is missing: %s\n' "$required_setting" >&2
+    exit 1
+  fi
+done
+
 firewall-cmd --permanent --add-service=ssh
 firewall-cmd --permanent --add-service=http
 firewall-cmd --reload
